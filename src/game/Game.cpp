@@ -340,7 +340,41 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     ControllerManager& cm = ControllerManager::getInstance();
-    cm.mouseCallback( window, xpos, ypos );
+    cm.mouseCallback( window, button, action, mods );
+}
+
+
+// Loads a cubemap texture from 6 individual texture faces
+// Order should be:
+// +X (right)
+// -X (left)
+// +Y (top)
+// -Y (bottom)
+// +Z (front)
+// -Z (back)
+GLuint loadCubemap(vector<const GLchar*> faces)
+{
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+
+    int x,y,comp;
+    unsigned char* image;
+    
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+    for(GLuint i = 0; i < faces.size(); i++)
+    {
+        image = stbi_load(faces[i], &x, &y, &comp, STBI_rgb);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        stbi_image_free(image);
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+    return textureID;
 }
 
 
@@ -350,23 +384,87 @@ int Game::mainLoop()
     /*
      Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
 .     */
-    //Player p = Player();
-    //p.getController()->setMiscCallback(SDL_WINDOWEVENT_CLOSE, std::bind(&Game::close, this));
-    //p.getController()->setKeyPressCallback(SDLK_ESCAPE, std::bind(&Game::close, this));
+    Player p = Player();
     loadAssets();
 
     glfwSetKeyCallback( window, key_callback);
-    glfwSetCursorPosCallback(window, cursor_pos_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     
     Shader simpleShader("Simple shader");
     simpleShader.attach(GL_VERTEX_SHADER, "assets/shaders/simple.vert");
     simpleShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/simple.frag");
     simpleShader.link();
-                                                                        
-    //Shader lightingShader("../Shaders/simpleLight" );
-    //Shader simpleShader("../Shaders/simple" );
-    //loadSDKMesh("../Assets/Models/Hair/scalp_mesh.sdkmesh");
+
+        Shader skyboxShader("Skybox shader");
+        skyboxShader.attach(GL_VERTEX_SHADER, "assets/shaders/skybox.vert");
+        skyboxShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/skybox.frag");
+        skyboxShader.link();
+
+
+        GLfloat skyboxVertices[] = {
+        // Positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+  
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+  
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+   
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+  
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+  
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+        // Setup skybox VAO
+    GLuint skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glBindVertexArray(0);
+
+    vector<const GLchar*> faces;
+    faces.push_back("assets/skyboxes/default/hills2_rt.tga");
+    faces.push_back("assets/skyboxes/default/hills2_lf.tga");
+    faces.push_back("assets/skyboxes/default/hills2_up.tga");
+    faces.push_back("assets/skyboxes/default/hills2_dn.tga");
+    faces.push_back("assets/skyboxes/default/hills2_bk.tga");
+    faces.push_back("assets/skyboxes/default/hills2_ft.tga");
+    GLuint cubemapTexture = loadCubemap(faces); 
 
 
     //Make hair
@@ -378,6 +476,11 @@ int Game::mainLoop()
        vh.push_back(h);
     }
     glLineWidth(0.2f);
+
+    glm::mat4 projection = glm::perspective(p.getCamera()->getZoom(),
+                                            (float)screenWidth/(float)screenHeight,
+                                            0.1f, 100.0f);
+    glm::mat4 view = glm::mat4();
     
     while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
     {
@@ -397,19 +500,30 @@ int Game::mainLoop()
             vh[i].update();
             vh[i].draw();
         }
-
-        //glBindVertexArray(VAO);
-        //glDrawArrays(GL_LINE_STRIP, 0, 3);
         // Actualisation de la fenêtre
         simpleShader.unuse();
+
+        // Draw skybox as last
+        glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader.use();     
+        view = glm::mat4(glm::mat3(p.getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
+        glUniformMatrix4fv(glGetUniformLocation(skyboxShader.getProgram(), "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(skyboxShader.getProgram(), "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(skyboxShader.getProgram(), "skybox"), 0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // Set depth function back to default
+        skyboxShader.unuse();
         
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
     //NOTE(marc) : We should properly clean the app, but since this will be the last
     //thing the program will do, it will clean them for us
-    //SDL_DestroyWindow(window);
-    //SDL_Quit();
 
     // Close OpenGL window and terminate GLFW
     ImGui_ImplGlfwGL3_Shutdown();

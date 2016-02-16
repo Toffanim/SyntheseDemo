@@ -12,18 +12,20 @@
 #include "../mesh/Model.h"
 #include "../camera/Camera.h"
 #include "../controller/Controller.h"
-#include <SDL2/SDL.h>
 #include <map>
-#include <glm/glm.hpp>
+#include <utility>
+#include "glm/glm.hpp"
 #include "../actor/Actor.h"
+#include "../managers/ControllerManager.h"
+#include <iostream>
 
 class Player
 {
 public:
-    Player(SDL_Keycode forwardKey = SDLK_z,
-           SDL_Keycode backwardKey = SDLK_s,
-           SDL_Keycode rightKey = SDLK_q,
-           SDL_Keycode leftKey = SDLK_d);
+    Player(int forwardKey = GLFW_KEY_UP,
+           int backwardKey = GLFW_KEY_DOWN,
+           int rightKey = GLFW_KEY_RIGHT,
+           int leftKey = GLFW_KEY_LEFT);
     ~Player();
 
     
@@ -55,7 +57,7 @@ public:
     int getLife() { return(life);}
     int getKey() {return(key);}
     
-    std::map<SDL_Keycode, std::string> getMapping(){return(mapping);}
+    std::map<int, std::string> getMapping(){return(mapping);}
     Controller* getController(){return(c);}
     Camera* getCamera(){return(cam);}
     void setPosition( glm::vec3 p ) { position = p; updateCamera();}
@@ -69,10 +71,10 @@ public:
 
     int getAttack() { return(atk); }
 private:
-    SDL_Keycode forwardKey;
-    SDL_Keycode backwardKey;
-    SDL_Keycode rightKey;
-    SDL_Keycode leftKey;
+    int forwardKey;
+    int backwardKey;
+    int rightKey;
+    int leftKey;
 
     bool moveLeft;
     bool moveRight;
@@ -86,7 +88,7 @@ private:
     int gold;
     int key;
     
-    std::map<SDL_Keycode, std::string> mapping;
+    std::map<int, std::string> mapping;
     float speed;
     glm::vec3 position;
     Controller* c;
@@ -94,6 +96,7 @@ private:
 
     float lastX;
     float lastY;
+    bool firstCursorMov;
 
     float atkPerSec;
     int atk;

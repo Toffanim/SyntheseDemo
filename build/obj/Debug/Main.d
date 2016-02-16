@@ -1,6 +1,7 @@
 obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
  ../src/main/../game/Game.h ../lib/glew/glew.h \
- ../src/main/../game/../mesh/Model.h ../lib/glm/glm.hpp \
+ ../src/main/../game/../player/Player.h \
+ ../src/main/../game/../player/../mesh/Model.h ../lib/glm/glm.hpp \
  ../lib/glm/detail/_fixes.hpp ../lib/glm/fwd.hpp \
  ../lib/glm/detail/type_int.hpp ../lib/glm/detail/setup.hpp \
  ../lib/glm/detail/type_float.hpp ../lib/glm/detail/type_vec.hpp \
@@ -54,19 +55,26 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
  ../lib/assimp/mesh.h ../lib/assimp/light.h ../lib/assimp/camera.h \
  ../lib/assimp/material.h ../lib/assimp/material.inl ../lib/assimp/anim.h \
  ../lib/assimp/metadata.h ../lib/assimp/postprocess.h \
- ../src/main/../game/../mesh/Mesh.h ../lib/assimp/types.h \
- ../src/main/../game/../mesh/../shader/Shader.h \
- ../src/main/../game/../mesh/../shader/../utils/Utils.h \
- ../src/main/../game/../mesh/../shader/../utils/../mesh/AABB.h \
+ ../src/main/../game/../player/../mesh/Mesh.h ../lib/assimp/types.h \
+ ../src/main/../game/../player/../mesh/../shader/Shader.h \
+ ../src/main/../game/../player/../mesh/../shader/../utils/Utils.h \
+ ../src/main/../game/../player/../mesh/../shader/../utils/../mesh/AABB.h \
+ ../src/main/../game/../player/../camera/Camera.h \
+ ../src/main/../game/../player/../controller/Controller.h \
+ ../src/main/../game/../player/../actor/Actor.h \
+ ../src/main/../game/../player/../actor/../mesh/AABB.h \
+ ../src/main/../game/../player/../actor/../mesh/Model.h \
+ ../src/main/../game/../player/../actor/../player/Player.h \
+ ../src/main/../game/../player/../managers/ControllerManager.h \
+ ../src/main/../game/../player/../managers/../controller/Controller.h \
+ ../lib/glfw/include/GLFW/glfw3.h ../src/main/../game/../mesh/Model.h \
  ../src/main/../game/../camera/Camera.h ../lib/glm/gtc/type_ptr.hpp \
  ../lib/glm/gtc/../gtc/quaternion.hpp \
  ../lib/glm/gtc/../gtc/quaternion.inl ../lib/glm/gtc/type_ptr.inl \
  ../src/main/../game/../managers/ModelManager.h \
  ../src/main/../game/../managers/../mesh/Model.h \
  ../src/main/../game/../managers/ControllerManager.h \
- ../src/main/../game/../managers/../controller/Controller.h \
- ../lib/glfw/include/GLFW/glfw3.h ../lib/stb/stb_image.h \
- ../lib/imgui/imgui.h ../lib/imgui/imconfig.h \
+ ../lib/stb/stb_image.h ../lib/imgui/imgui.h ../lib/imgui/imconfig.h \
  ../lib/imgui/imgui_impl_glfw_gl3.h
 
 ../src/main/Main.h:
@@ -75,7 +83,9 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
 
 ../lib/glew/glew.h:
 
-../src/main/../game/../mesh/Model.h:
+../src/main/../game/../player/Player.h:
+
+../src/main/../game/../player/../mesh/Model.h:
 
 ../lib/glm/glm.hpp:
 
@@ -291,15 +301,35 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
 
 ../lib/assimp/postprocess.h:
 
-../src/main/../game/../mesh/Mesh.h:
+../src/main/../game/../player/../mesh/Mesh.h:
 
 ../lib/assimp/types.h:
 
-../src/main/../game/../mesh/../shader/Shader.h:
+../src/main/../game/../player/../mesh/../shader/Shader.h:
 
-../src/main/../game/../mesh/../shader/../utils/Utils.h:
+../src/main/../game/../player/../mesh/../shader/../utils/Utils.h:
 
-../src/main/../game/../mesh/../shader/../utils/../mesh/AABB.h:
+../src/main/../game/../player/../mesh/../shader/../utils/../mesh/AABB.h:
+
+../src/main/../game/../player/../camera/Camera.h:
+
+../src/main/../game/../player/../controller/Controller.h:
+
+../src/main/../game/../player/../actor/Actor.h:
+
+../src/main/../game/../player/../actor/../mesh/AABB.h:
+
+../src/main/../game/../player/../actor/../mesh/Model.h:
+
+../src/main/../game/../player/../actor/../player/Player.h:
+
+../src/main/../game/../player/../managers/ControllerManager.h:
+
+../src/main/../game/../player/../managers/../controller/Controller.h:
+
+../lib/glfw/include/GLFW/glfw3.h:
+
+../src/main/../game/../mesh/Model.h:
 
 ../src/main/../game/../camera/Camera.h:
 
@@ -316,10 +346,6 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
 ../src/main/../game/../managers/../mesh/Model.h:
 
 ../src/main/../game/../managers/ControllerManager.h:
-
-../src/main/../game/../managers/../controller/Controller.h:
-
-../lib/glfw/include/GLFW/glfw3.h:
 
 ../lib/stb/stb_image.h:
 

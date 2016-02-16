@@ -8,21 +8,32 @@
 #include "Player.h"
 using namespace std;
 
-Player::Player(SDL_Keycode forwardKey, SDL_Keycode backwardKey, SDL_Keycode rightKey, SDL_Keycode leftKey) :
+Player::Player(int forwardKey, int backwardKey, int rightKey, int leftKey) :
         forwardKey(forwardKey), backwardKey(backwardKey), rightKey(rightKey), leftKey(leftKey),
         moveForward(false), moveRight(false), moveLeft(false), moveBackward(false),
         speed(2.0f), position( glm::vec3( 0.0f, 0.0f, 0.0f )),
-        lastX(0.0f), lastY(0.0f), firstTime(true), life(100), gold(0),
-        mapping(map<SDL_Keycode,string>()), atkPerSec( 0.5f ),
-atk( 2 ), lastAttack( 0.0f ), key(1)
+        lastX(0.0f), lastY(0.0f), firstTime(true), life(100), gold(0)
+        , atkPerSec( 0.5f ), atk( 2 ), lastAttack( 0.0f ), key(1)
 {
-    //Make all the key callback setup     
-    mapping.insert( pair<SDL_Keycode,string>(forwardKey, "moveForward"));
-    mapping.insert( pair<SDL_Keycode,string>(backwardKey, "moveBackward"));
-    mapping.insert( pair<SDL_Keycode,string>(rightKey, "moveRight"));
-    mapping.insert( pair<SDL_Keycode,string>(leftKey, "moveLeft"));
     
     c = new Controller();
+    ControllerManager& cm = ControllerManager::getInstance();
+    cm.add(c);
+    
+    c->addKeyListener( pair<int, int>(forwardKey, GLFW_PRESS), bind(&Player::startMoveForward, this));
+    c->addKeyListener( pair<int, int>(backwardKey, GLFW_PRESS), bind(&Player::startMoveBackward, this));
+    c->addKeyListener( pair<int, int>(rightKey, GLFW_PRESS), bind(&Player::startMoveRight, this));
+    c->addKeyListener( pair<int, int>(leftKey, GLFW_PRESS), bind(&Player::startMoveLeft, this));
+
+    c->addKeyListener( pair<int, int>(forwardKey, GLFW_RELEASE), bind(&Player::stopMoveForward, this));
+    c->addKeyListener( pair<int, int>(backwardKey, GLFW_RELEASE), bind(&Player::stopMoveBackward, this));
+    c->addKeyListener( pair<int, int>(rightKey, GLFW_RELEASE), bind(&Player::stopMoveRight, this));
+    c->addKeyListener( pair<int, int>(leftKey, GLFW_RELEASE), bind(&Player::stopMoveLeft, this));
+
+    std::function<void(double, double)> f = bind(&Player::mouseMotion, this, std::placeholders::_1, std::placeholders::_2);
+    c->addCursorListener( f );
+    
+    #if 0
     c->setKeyPressCallback(forwardKey, bind(&Player::startMoveForward, this));
     c->setKeyPressCallback(backwardKey, bind(&Player::startMoveBackward, this));
     c->setKeyPressCallback(rightKey, bind(&Player::startMoveRight, this));
@@ -37,6 +48,8 @@ atk( 2 ), lastAttack( 0.0f ), key(1)
     c->setKeyReleaseCallback(SDLK_DOWN, bind(&Player::stopMoveDown, this));
     std::function<void(int, int)> f = bind(&Player::mouseMotion, this, std::placeholders::_1, std::placeholders::_2);
     c->setMouseCallback(f);
+    #endif
+    
     cam = new Camera( position );
 
     aabb.min = glm::vec3();
@@ -74,6 +87,7 @@ bool Player::isAttacking( float deltaTime )
 //Pretty self explaining
 void Player::startMoveUp()
 {
+    cout << "PRESS KEY UP" << endl;
     moveUp = true;
 }
 void Player::startMoveDown()
@@ -173,18 +187,25 @@ void Player::updateCamera()
 //Callback for the mouse
 void Player::mouseMotion(int x, int y)
 {
-    //Not using x and y because SDL is bugged in relative coordinates
-    //Create dependency but better for motion use
-    int t1;
-    int t2;
-    SDL_GetRelativeMouseState(&t1,&t2);
-    float sensitivity = 0.05;
-    t1 *= sensitivity;
-    t2 *= -sensitivity;
+    if ( firstTime )
+    {
+        lastX = x;
+        lastY = y;
+        firstTime = false;
+    }
+    
+    int xoff = x - lastX;
+    int yoff = y - lastY;
+    lastX = x;
+    lastY = y;
+    
+    float sensitivity = 0.5f;
+    xoff *= sensitivity;
+    yoff *= -sensitivity;
 
-    cam->addYaw( t1 );
-    cam->addPitch( t2 );
-    cam->updateCameraVectors();    
+    cam->addYaw( xoff );
+    cam->addPitch( yoff );
+    cam->updateCameraVectors();        
 }
 
 //Compute AABB for the player (the player having no model we cant auto compute it

@@ -155,10 +155,12 @@ OBJECTS := \
 	$(OBJDIR)/Main.o \
 	$(OBJDIR)/Camera.o \
 	$(OBJDIR)/Shader.o \
+	$(OBJDIR)/Actor.o \
 	$(OBJDIR)/Controller.o \
 	$(OBJDIR)/Game.o \
 	$(OBJDIR)/Model.o \
 	$(OBJDIR)/Mesh.o \
+	$(OBJDIR)/Player.o \
 	$(OBJDIR)/Utils.o \
 	$(OBJDIR)/ModelManager.o \
 	$(OBJDIR)/ControllerManager.o \
@@ -231,6 +233,9 @@ $(OBJDIR)/Camera.o: ../src/camera/Camera.cpp
 $(OBJDIR)/Shader.o: ../src/shader/Shader.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Actor.o: ../src/actor/Actor.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Controller.o: ../src/controller/Controller.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
@@ -241,6 +246,9 @@ $(OBJDIR)/Model.o: ../src/mesh/Model.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Mesh.o: ../src/mesh/Mesh.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Player.o: ../src/player/Player.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Utils.o: ../src/utils/Utils.cpp

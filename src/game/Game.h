@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include "glew/glew.h"
-//#include "../player/Player.h"
+#include "../player/Player.h"
 //#include "../controller/Controller.h"
 #include "../mesh/Model.h"
 #include "../camera/Camera.h"
@@ -55,8 +55,6 @@ public :
     
 private :
     GLFWwindow* window;
-//SDL_GLContext openGLcontext;
-//  SDL_Event events;
     bool endgame;
     int screenWidth;
     int screenHeight;

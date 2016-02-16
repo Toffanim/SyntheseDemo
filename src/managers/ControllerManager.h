@@ -22,9 +22,9 @@ public :
         return instance;
     }
 
-    std::vector<Controller>& getControllers()
+    void add( Controller* c )
     {
-        return( controllers );
+        controllers.push_back(c);
     }
 
     void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -33,7 +33,7 @@ public :
              it != controllers.end();
              ++it)
         {
-            (*it).processKey( key, action );
+            (*it)->processKey( key, action );
         }
     }
 
@@ -43,7 +43,7 @@ public :
              it != controllers.end();
              ++it)
         {
-            (*it).processCursor( xpos, ypos );
+            (*it)->processCursor( xpos, ypos );
         }
     }
 
@@ -53,7 +53,7 @@ public :
              it != controllers.end();
              ++it)
         {
-            (*it).processMouse( button, action );
+            (*it)->processMouse( button, action );
         }
     }
 

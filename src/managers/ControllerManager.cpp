@@ -8,6 +8,6 @@
 #include "ControllerManager.h"
 using namespace std;
 
-ControllerManager::ControllerManager() : controllers( vector<Controller>() )
+ControllerManager::ControllerManager() : controllers( vector<Controller*>() )
 {
 }
