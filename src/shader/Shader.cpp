@@ -13,6 +13,16 @@ Shader::Shader(string name):name(name)
 {
 }
 
+Shader::~Shader()
+{
+    for (int i=0;i<handles.size();i++)
+    {
+        glDetachShader(program_handle, handles[i]);
+        glDeleteShader(handles[i]);
+    }
+    glDeleteProgram(program_handle);
+}
+
 void Shader::use()
 {
     glUseProgram(program_handle);

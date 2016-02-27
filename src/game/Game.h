@@ -30,7 +30,7 @@
 #include "stb/stb_image.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw_gl3.h"
-
+#include "../skybox/Skybox.h"
 struct room
 {
     bool murSud;

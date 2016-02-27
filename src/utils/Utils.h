@@ -31,7 +31,7 @@ namespace Utils
         int w, h;
         std::vector<RGB> data;
     };
-
+    bool checkGlError(const char* title );
     bool isColorEquals( glm::vec3 c1, glm::vec3 c2);
     const char* textFileRead( const char *fn );
     GLuint TextureFromFile( const char* path, std::string directory);

@@ -21,6 +21,7 @@ class Shader
 {
 public:
     Shader(std::string name);
+    ~Shader();
     void attach( int type, const char* filename);
     void link();
     void unuse();

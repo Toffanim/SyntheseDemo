@@ -153,11 +153,13 @@ endif
 
 OBJECTS := \
 	$(OBJDIR)/Main.o \
+	$(OBJDIR)/Skybox.o \
 	$(OBJDIR)/Camera.o \
 	$(OBJDIR)/Shader.o \
 	$(OBJDIR)/Actor.o \
 	$(OBJDIR)/Controller.o \
 	$(OBJDIR)/Game.o \
+	$(OBJDIR)/PostFX.o \
 	$(OBJDIR)/Model.o \
 	$(OBJDIR)/Mesh.o \
 	$(OBJDIR)/Player.o \
@@ -227,6 +229,9 @@ endif
 $(OBJDIR)/Main.o: ../src/main/Main.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Skybox.o: ../src/skybox/Skybox.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Camera.o: ../src/camera/Camera.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
@@ -240,6 +245,9 @@ $(OBJDIR)/Controller.o: ../src/controller/Controller.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Game.o: ../src/game/Game.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/PostFX.o: ../src/postFX/PostFX.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Model.o: ../src/mesh/Model.cpp

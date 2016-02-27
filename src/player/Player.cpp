@@ -87,7 +87,6 @@ bool Player::isAttacking( float deltaTime )
 //Pretty self explaining
 void Player::startMoveUp()
 {
-    cout << "PRESS KEY UP" << endl;
     moveUp = true;
 }
 void Player::startMoveDown()

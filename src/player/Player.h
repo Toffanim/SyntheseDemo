@@ -22,10 +22,10 @@
 class Player
 {
 public:
-    Player(int forwardKey = GLFW_KEY_UP,
-           int backwardKey = GLFW_KEY_DOWN,
-           int rightKey = GLFW_KEY_RIGHT,
-           int leftKey = GLFW_KEY_LEFT);
+    Player(int forwardKey = GLFW_KEY_W,
+           int backwardKey = GLFW_KEY_S,
+           int rightKey = GLFW_KEY_A,
+           int leftKey = GLFW_KEY_D);
     ~Player();
 
     

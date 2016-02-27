@@ -74,7 +74,8 @@ obj/Debug/Game.o: ../src/game/Game.cpp ../src/game/Game.h \
  ../src/game/../managers/../mesh/Model.h \
  ../src/game/../managers/ControllerManager.h ../lib/stb/stb_image.h \
  ../lib/imgui/imgui.h ../lib/imgui/imconfig.h \
- ../lib/imgui/imgui_impl_glfw_gl3.h
+ ../lib/imgui/imgui_impl_glfw_gl3.h ../src/game/../skybox/Skybox.h \
+ ../src/game/../skybox/../shader/Shader.h
 
 ../src/game/Game.h:
 
@@ -351,3 +352,7 @@ obj/Debug/Game.o: ../src/game/Game.cpp ../src/game/Game.h \
 ../lib/imgui/imconfig.h:
 
 ../lib/imgui/imgui_impl_glfw_gl3.h:
+
+../src/game/../skybox/Skybox.h:
+
+../src/game/../skybox/../shader/Shader.h:

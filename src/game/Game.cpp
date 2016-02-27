@@ -111,7 +111,7 @@ int Game::init()
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor( 1.0f, 0.3f, 0.3f, 1.0f);
+    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f);
 
     glfwSetInputMode( window, GLFW_STICKY_KEYS, GL_TRUE );
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -135,39 +135,6 @@ void Game::close()
 //Draw all the scene
 void Game::drawScene( )
 {    
-}
-
-//Is there on or more error since last call ?
-bool checkGlError(const char* title)
-{
-    int error;
-    if((error = glGetError()) != GL_NO_ERROR)
-    {
-        std::string errorString;
-        switch(error)
-        {
-        case GL_INVALID_ENUM:
-            errorString = "GL_INVALID_ENUM";
-            break;
-        case GL_INVALID_VALUE:
-            errorString = "GL_INVALID_VALUE";
-            break;
-        case GL_INVALID_OPERATION:
-            errorString = "GL_INVALID_OPERATION";
-            break;
-        case GL_INVALID_FRAMEBUFFER_OPERATION:
-            errorString = "GL_INVALID_FRAMEBUFFER_OPERATION";
-            break;
-        case GL_OUT_OF_MEMORY:
-            errorString = "GL_OUT_OF_MEMORY";
-            break;
-        default:
-            errorString = "UNKNOWN";
-            break;
-        }
-        fprintf(stdout, "OpenGL Error(%s): %s\n", errorString.c_str(), title);
-    }
-    return error == GL_NO_ERROR;
 }
 
 //Load models into the singleton modelmanager
@@ -245,6 +212,8 @@ struct Hair
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER,0);
         glBindVertexArray(0);
+
+        currentTime = glfwGetTime();
     }
 
     void addForce(glm::vec3 f)
@@ -259,7 +228,7 @@ struct Hair
 
     void update()
     {
-        float dt = 1.0f/20.0f;
+        float dt = (glfwGetTime() - currentTime)/10;
  
         // update velocities
         for(std::vector<Particle*>::iterator it = particles.begin(); it != particles.end(); ++it) {
@@ -323,6 +292,7 @@ struct Hair
     std::vector<Particle*> particles;
     glm::vec3 color;
     float length;
+    float currentTime;
 };
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -343,41 +313,6 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     cm.mouseCallback( window, button, action, mods );
 }
 
-
-// Loads a cubemap texture from 6 individual texture faces
-// Order should be:
-// +X (right)
-// -X (left)
-// +Y (top)
-// -Y (bottom)
-// +Z (front)
-// -Z (back)
-GLuint loadCubemap(vector<const GLchar*> faces)
-{
-    GLuint textureID;
-    glGenTextures(1, &textureID);
-
-    int x,y,comp;
-    unsigned char* image;
-    
-    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-    for(GLuint i = 0; i < faces.size(); i++)
-    {
-        image = stbi_load(faces[i], &x, &y, &comp, STBI_rgb);
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-        stbi_image_free(image);
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-    return textureID;
-}
-
-
 //Main rendering loop
 int Game::mainLoop()
 {
@@ -387,76 +322,225 @@ int Game::mainLoop()
     Player p = Player();
     loadAssets();
 
+
+        // Load images and upload textures
+    GLuint textures[2];
+    glGenTextures(2, textures);
+    int x;
+    int y;
+    int comp;
+
+    unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+
+    unsigned char * spec = stbi_load("assets/textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
+
+
+    // Load geometry
+    int cube_triangleCount = 12;
+    int cube_triangleList[] = {0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 19, 17, 20, 21, 22, 23, 24, 25, 26, };
+    float cube_uvs[] = {0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, 0.f,  1.f, 0.f,  1.f, 1.f,  0.f, 1.f,  1.f, 1.f,  0.f, 0.f, 0.f, 0.f, 1.f, 1.f,  1.f, 0.f,  };
+    float cube_vertices[] = {-0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5 };
+    float cube_normals[] = {0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, };
+    int plane_triangleCount = 2;
+    int plane_triangleList[] = {0, 1, 2, 2, 1, 3}; 
+    float plane_uvs[] = {0.f, 0.f, 0.f, 50.f, 50.f, 0.f, 50.f, 50.f};
+    float plane_vertices[] = {-50.0, -1.0, 50.0, 50.0, -1.0, 50.0, -50.0, -1.0, -50.0, 50.0, -1.0, -50.0};
+    float plane_normals[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0};
+    int   quad_triangleCount = 2;
+    int   quad_triangleList[] = {0, 1, 2, 2, 1, 3}; 
+    float quad_vertices[] =  {-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0};
+
+    // Vertex Array Object
+    GLuint vao[3];
+    glGenVertexArrays(3, vao);
+
+    // Vertex Buffer Objects
+    GLuint vbo[10];
+    glGenBuffers(10, vbo);
+
+    // Cube
+    glBindVertexArray(vao[0]);
+    // Bind indices and upload data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[0]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_triangleList), cube_triangleList, GL_STATIC_DRAW);
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
+    // Bind normals and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_normals), cube_normals, GL_STATIC_DRAW);
+    // Bind uv coords and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube_uvs), cube_uvs, GL_STATIC_DRAW);
+
+    // Plane
+    glBindVertexArray(vao[1]);
+    // Bind indices and upload data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(plane_triangleList), plane_triangleList, GL_STATIC_DRAW);
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_vertices), plane_vertices, GL_STATIC_DRAW);
+    // Bind normals and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*3, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_normals), plane_normals, GL_STATIC_DRAW);
+    // Bind uv coords and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(plane_uvs), plane_uvs, GL_STATIC_DRAW);
+
+    // Quad
+    glBindVertexArray(vao[2]);
+    // Bind indices and upload data
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[8]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_triangleList), quad_triangleList, GL_STATIC_DRAW);
+    // Bind vertices and upload data
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[9]);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+
+    // Unbind everything. Potentially illegal on some implementations
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
+
+
+    
     glfwSetKeyCallback( window, key_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
-    
+
+    //DEBUG SHADERS
     Shader simpleShader("Simple shader");
     simpleShader.attach(GL_VERTEX_SHADER, "assets/shaders/simple.vert");
     simpleShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/simple.frag");
     simpleShader.link();
 
-        Shader skyboxShader("Skybox shader");
-        skyboxShader.attach(GL_VERTEX_SHADER, "assets/shaders/skybox.vert");
-        skyboxShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/skybox.frag");
-        skyboxShader.link();
+    Shader blitShader("Blit shader");
+    blitShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    blitShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
+    blitShader.link();
+
+    //RENDERING SHADERS
+    Shader gbuffer("G-buffer");
+    gbuffer.attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
+    gbuffer.attach(GL_FRAGMENT_SHADER, "assets/shaders/gbuffer.frag");
+    gbuffer.link();
+
+    Shader plShader("Point light");
+    plShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    plShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/pointlight.frag");
+    plShader.link();
+
+    Shader slShader("Spot light");
+    slShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    slShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/spotlight.frag");
+    slShader.link();
+
+    Shader dlShader("Directional light");
+    dlShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    dlShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
+    dlShader.link();
 
 
-        GLfloat skyboxVertices[] = {
-        // Positions          
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-  
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-  
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-   
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-  
-        -1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-  
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f
-    };
-        // Setup skybox VAO
-    GLuint skyboxVAO, skyboxVBO;
-    glGenVertexArrays(1, &skyboxVAO);
-    glGenBuffers(1, &skyboxVBO);
-    glBindVertexArray(skyboxVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    glBindVertexArray(0);
+    //POSTFX SHADERS
+    Shader blurShader("Blur shader");
+    blurShader.attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
+    blurShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blur.frag");
+    blurShader.link();
+    
+    // Init frame buffers
+    GLuint gbufferFbo;
+    GLuint gbufferTextures[3];
+    GLuint gbufferDrawBuffers[2];
+    glGenTextures(3, gbufferTextures);
 
+    // Create color texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create normal texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create depth texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, screenWidth, screenHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Create Framebuffer Object
+    glGenFramebuffers(1, &gbufferFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
+    gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
+    glDrawBuffers(2, gbufferDrawBuffers);
+
+    // Attach textures to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
+
+
+    //create UBO
+    // Update and bind uniform buffer object
+    GLuint ubo[1];
+    glGenBuffers(1, ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+    //GLint uboSize = 0;
+    //glGetActiveUniformBlockiv(pointlightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
+    //glGetActiveUniformBlockiv(directionallightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
+
+    // Ignore ubo size, allocate it sufficiently big for all light data structures
+    GLint uboSize = 512;
+
+    glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    //create skybox
     vector<const GLchar*> faces;
     faces.push_back("assets/skyboxes/default/hills2_rt.tga");
     faces.push_back("assets/skyboxes/default/hills2_lf.tga");
@@ -464,8 +548,8 @@ int Game::mainLoop()
     faces.push_back("assets/skyboxes/default/hills2_dn.tga");
     faces.push_back("assets/skyboxes/default/hills2_bk.tga");
     faces.push_back("assets/skyboxes/default/hills2_ft.tga");
-    GLuint cubemapTexture = loadCubemap(faces); 
-
+    Skybox skybox(faces); 
+    Utils::checkGlError("skybox error");
 
     //Make hair
     std::vector<Hair> vh;
@@ -481,11 +565,171 @@ int Game::mainLoop()
                                             (float)screenWidth/(float)screenHeight,
                                             0.1f, 100.0f);
     glm::mat4 view = glm::mat4();
-    
+
+    int instanceCount = 4;
+    int pointLightCount = 5;
+    int directionalLightCount = 1;
+    int spotLightCount = 4;
+    float t = 0.f;
+    float deltaTime = 0.f;
     while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
     {
-        //p.getController()->processEvents();
+        ImGui_ImplGlfwGL3_NewFrame();
         
+        deltaTime = glfwGetTime() -t;
+        t = glfwGetTime();
+        p.move(deltaTime);
+        
+        //Clean FBOs
+        glEnable(GL_DEPTH_TEST);
+        glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glViewport( 0, 0, screenWidth, screenHeight);
+        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo );
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
+        //Create matrices
+        glm::mat4 worldToView = p.getCamera()->getViewMatrix();
+        glm::mat4 objectToWorld;
+        glm::mat4 mv = worldToView * objectToWorld;
+        glm::mat4 mvp = projection * mv;
+        glm::mat4 inverseProjection = glm::inverse( projection );
+
+        //Render in GBUFFER
+        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
+        gbuffer.use();
+        // Select textures
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[1]);
+        // Upload uniforms
+        glUniformMatrix4fv(glGetUniformLocation(gbuffer.getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+        glUniformMatrix4fv(glGetUniformLocation(gbuffer.getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "InstanceCount"), (int) instanceCount);
+        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "SpecularPower"), 30.f);
+        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "Time"), t);
+        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "Diffuse"), 0);
+        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "Specular"), 1);
+        //Render scene
+        glBindVertexArray(vao[0]);
+        glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "Time"), 0.f);
+        glBindVertexArray(vao[1]);
+        glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        gbuffer.unuse();
+        
+        //Render lighting
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+        // Select textures
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        // Bind the same VAO for all lights
+        glBindVertexArray(vao[2]);
+        // Render point lights
+        plShader.use();
+        glUniformMatrix4fv(glGetUniformLocation(plShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+        glUniform1i(glGetUniformLocation(plShader.getProgram(), "ColorBuffer"), 0);
+        glUniform1i(glGetUniformLocation(plShader.getProgram(), "NormalBuffer"), 1);
+        glUniform1i(glGetUniformLocation(plShader.getProgram(), "DepthBuffer"), 2);
+        struct PointLight
+        {
+            glm::vec3 position;
+            int padding;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < pointLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+            PointLight p = { 
+                glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
+                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
+                0.5f + fabsf(cosf(t+i))
+            };
+            PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *pointLightBuffer = p;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(plShader.getProgram(), "light"), ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
+        
+        // Render directional lights
+        dlShader.use();
+        glUniformMatrix4fv(glGetUniformLocation(dlShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "ColorBuffer"), 0);
+        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "NormalBuffer"), 1);
+        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "DepthBuffer"), 2);
+        struct DirectionalLight
+        {
+            glm::vec3 direction;
+            int padding;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < directionalLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+             DirectionalLight d = { 
+                glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
+                glm::vec3(1.0, 1.0, 1.0),
+                0.8f
+            };
+            DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *directionalLightBuffer = d;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(dlShader.getProgram(), "light"), ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }
+
+        // Render spot lights
+        slShader.use();
+        glUniformMatrix4fv(glGetUniformLocation(slShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+        glUniform1i(glGetUniformLocation(slShader.getProgram(), "ColorBuffer"), 0);
+        glUniform1i(glGetUniformLocation(slShader.getProgram(), "NormalBuffer"), 1);
+        glUniform1i(glGetUniformLocation(slShader.getProgram(), "DepthBuffer"), 2);
+        struct SpotLight
+        {
+            glm::vec3 position;
+            float angle;
+            glm::vec3 direction;
+            float penumbraAngle;
+            glm::vec3 color;
+            float intensity;
+        };
+        for (int i = 0; i < spotLightCount; ++i)
+        {
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+            SpotLight s = { 
+                glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
+                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
+                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
+            };
+            SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+            *spotLightBuffer = s;
+            glUnmapBuffer(GL_UNIFORM_BUFFER);
+            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(slShader.getProgram(), "light"), ubo[0]);
+            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        }  
+        //glDisable(GL_BLEND);
+        plShader.unuse();
+        Utils::checkGlError("poiintlight");
+
+        // Draw skybox as last
+        view = glm::mat4(glm::mat3(p.getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
+        skybox.display(view, projection, gbufferTextures[2]);
+        Utils::checkGlError("Skybox");
+        glDisable(GL_BLEND);
+        /*
         //lightingShader.use();
         simpleShader.use();
         glViewport(0,0,screenWidth, screenHeight);
@@ -502,22 +746,43 @@ int Game::mainLoop()
         }
         // Actualisation de la fenêtre
         simpleShader.unuse();
+ 
 
-        // Draw skybox as last
-        glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
-        skyboxShader.use();     
-        view = glm::mat4(glm::mat3(p.getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-        glUniformMatrix4fv(glGetUniformLocation(skyboxShader.getProgram(), "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(skyboxShader.getProgram(), "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        // skybox cube
-        glBindVertexArray(skyboxVAO);
+        */
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        blitShader.use();
         glActiveTexture(GL_TEXTURE0);
-        glUniform1i(glGetUniformLocation(skyboxShader.getProgram(), "skybox"), 0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        glDepthFunc(GL_LESS); // Set depth function back to default
-        skyboxShader.unuse();
+        glBindVertexArray(vao[2]);
+        // Viewport 
+        glViewport( 0, 0, screenWidth/4, screenHeight/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( screenWidth/4, 0, screenWidth/4, screenHeight/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( screenWidth/4 * 2, 0, screenWidth/4, screenHeight/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+
+
+        ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
+        ImGui::Begin("aogl");
+        ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
+        ImGui::DragInt("Directional Lights", &directionalLightCount, .1f, 0, 100);
+        ImGui::DragInt("Spot Lights", &spotLightCount, .1f, 0, 100);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
+
+        ImGui::Render();
+
         
         glfwSwapBuffers(window);
         glfwPollEvents();
