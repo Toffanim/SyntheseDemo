@@ -333,7 +333,7 @@ int Game::mainLoop()
     unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -453,6 +453,11 @@ int Game::mainLoop()
     blitShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
     blitShader.link();
 
+    Shader blitHDRShader("HDR blit shader");
+    blitHDRShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    blitHDRShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
+    blitHDRShader.link();
+
     //RENDERING SHADERS
     Shader gbuffer("G-buffer");
     gbuffer.attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
@@ -480,6 +485,16 @@ int Game::mainLoop()
     blurShader.attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
     blurShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blur.frag");
     blurShader.link();
+
+    Shader brightShader("Bright shader");
+    brightShader.attach(GL_VERTEX_SHADER, "assets/shaders/extractBright.vert");
+    brightShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/extractBright.frag");
+    brightShader.link();
+
+    Shader bloomShader("Bloom shader");
+    bloomShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    bloomShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
+    bloomShader.link();
     
     // Init frame buffers
     GLuint gbufferFbo;
@@ -489,8 +504,8 @@ int Game::mainLoop()
 
     // Create color texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -524,7 +539,32 @@ int Game::mainLoop()
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    
+    GLuint fxFbo;
+    GLuint fxDrawBuffers[1];
+    glGenFramebuffers(1, &fxFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+    fxDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, fxDrawBuffers);
+    // Create Fx textures
+    const int FX_TEXTURE_COUNT = 4;
+    GLuint fxTextures[FX_TEXTURE_COUNT];
+    glGenTextures(FX_TEXTURE_COUNT, fxTextures);
+    for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
+    {
+        glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    // Attach first fx texture to framebuffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //create UBO
     // Update and bind uniform buffer object
@@ -542,12 +582,12 @@ int Game::mainLoop()
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     //create skybox
     vector<const GLchar*> faces;
-    faces.push_back("assets/skyboxes/default/hills2_rt.tga");
-    faces.push_back("assets/skyboxes/default/hills2_lf.tga");
-    faces.push_back("assets/skyboxes/default/hills2_up.tga");
-    faces.push_back("assets/skyboxes/default/hills2_dn.tga");
-    faces.push_back("assets/skyboxes/default/hills2_bk.tga");
-    faces.push_back("assets/skyboxes/default/hills2_ft.tga");
+    faces.push_back("assets/skyboxes/Test/xpos.png");
+    faces.push_back("assets/skyboxes/Test/xneg.png");
+    faces.push_back("assets/skyboxes/Test/ypos.png");
+    faces.push_back("assets/skyboxes/Test/yneg.png");
+    faces.push_back("assets/skyboxes/Test/zpos.png");
+    faces.push_back("assets/skyboxes/Test/zneg.png");
     Skybox skybox(faces); 
     Utils::checkGlError("skybox error");
 
@@ -574,7 +614,7 @@ int Game::mainLoop()
     float deltaTime = 0.f;
     while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
     {
-        ImGui_ImplGlfwGL3_NewFrame();
+        //ImGui_ImplGlfwGL3_NewFrame();
         
         deltaTime = glfwGetTime() -t;
         t = glfwGetTime();
@@ -620,11 +660,17 @@ int Game::mainLoop()
         glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         gbuffer.unuse();
         
-        //Render lighting
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //Render lighting in postfx fbo
+        glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
+              Utils::checkGlError("before lights");
         // Select textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
@@ -634,6 +680,7 @@ int Game::mainLoop()
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
         // Bind the same VAO for all lights
         glBindVertexArray(vao[2]);
+  
         // Render point lights
         plShader.use();
         glUniformMatrix4fv(glGetUniformLocation(plShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
@@ -729,7 +776,66 @@ int Game::mainLoop()
         skybox.display(view, projection, gbufferTextures[2]);
         Utils::checkGlError("Skybox");
         glDisable(GL_BLEND);
-        /*
+
+        //Draw final frame on screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBindVertexArray(vao[2]);
+        glViewport(0,0, screenWidth/2, screenHeight);
+        blitHDRShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture( GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        blitHDRShader.unuse();
+        glViewport(screenWidth/2, 0, screenWidth/2, screenHeight);
+        blitShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture( GL_TEXTURE_2D, fxTextures[0]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        blitShader.unuse();
+
+        glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glViewport(0,0, screenWidth, screenHeight);
+        brightShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0] );
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        brightShader.unuse();
+
+        int amount = 10;
+        GLboolean horizontal = true, first_iteration = true;
+        //amount = amount + (amount%2);
+        blurShader.use();
+        for (GLuint i = 0; i < amount; i++)
+        {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[ 2 + horizontal ], 0);
+            glUniform1i(glGetUniformLocation(blurShader.getProgram(), "horizontal"), horizontal);
+            glBindTexture(
+                GL_TEXTURE_2D, first_iteration ? fxTextures[1] : fxTextures[ 2 + !horizontal ]
+                          ); 
+            glBindVertexArray(vao[2]);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+            horizontal = !horizontal;
+            if (first_iteration)
+                first_iteration = false;
+        }
+        blurShader.unuse();
+
+        bloomShader.use();
+        glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
+        glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "scene"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[3]);
+        glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "bloomBlur"), 1);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+        bloomShader.unuse();
+        
+/*
         //lightingShader.use();
         simpleShader.use();
         glViewport(0,0,screenWidth, screenHeight);
@@ -771,8 +877,14 @@ int Game::mainLoop()
         glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
         // Draw quad
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        // Viewport 
+        glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
+        // Bind texture
+        glBindTexture(GL_TEXTURE_2D, fxTextures[ 1 ]);
+        // Draw quad
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
-
+#if 0
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
         ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
@@ -782,8 +894,8 @@ int Game::mainLoop()
         ImGui::End();
 
         ImGui::Render();
-
-        
+#endif
+        Utils::checkGlError("end frame");
         glfwSwapBuffers(window);
         glfwPollEvents();
     }

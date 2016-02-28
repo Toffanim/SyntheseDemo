@@ -1,9 +1,12 @@
 #version 410 core
 in vec3 TexCoords;
+in vec4 pos;
 out vec4 color;
 
 uniform samplerCube skybox;
 uniform sampler2D DepthBuffer;
+
+//vec3 sunPos = vec3( 
 
 void main()
 {
@@ -16,7 +19,5 @@ void main()
 
     float depth = texture(DepthBuffer, vec2(x, y)).r;
     if ( depth >= 0.999 )
-        color = texture(skybox, TexCoords);
-    else
-        color = vec4(0.f);    
+        color = texture(skybox, TexCoords);  
 }

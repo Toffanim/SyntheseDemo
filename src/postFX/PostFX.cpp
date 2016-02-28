@@ -24,8 +24,10 @@ namespace PostFX
             glBindTexture(GL_TEXTURE_2D, texture);
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
             glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
+            std::cout << w << h << std::endl;
             glGenFramebuffers(2, pingpongFBO);
             glGenTextures(2, pingpongBuffer);
+            
             for (GLuint i = 0; i < 2; i++)
             {
                 glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
@@ -45,6 +47,7 @@ namespace PostFX
             int   quad_triangleCount = 2;
             int   quad_triangleList[] = {0, 1, 2, 2, 1, 3}; 
             float quad_vertices[] =  {-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0};
+            
             // Quad
             glBindVertexArray(vao);
             // Bind indices and upload data
@@ -54,8 +57,7 @@ namespace PostFX
             glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-            
+            glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);            
             createAll = false;
         }
         
@@ -80,6 +82,7 @@ namespace PostFX
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        Utils::checkGlError("blur");
         return pingpongBuffer[!horizontal];
     }
 }

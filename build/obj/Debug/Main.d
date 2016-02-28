@@ -77,7 +77,10 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
  ../lib/stb/stb_image.h ../lib/imgui/imgui.h ../lib/imgui/imconfig.h \
  ../lib/imgui/imgui_impl_glfw_gl3.h \
  ../src/main/../game/../skybox/Skybox.h \
- ../src/main/../game/../skybox/../shader/Shader.h
+ ../src/main/../game/../skybox/../shader/Shader.h \
+ ../src/main/../game/../postFX/PostFX.h \
+ ../src/main/../game/../postFX/../shader/Shader.h \
+ ../src/main/../game/../postFX/../utils/Utils.h
 
 ../src/main/Main.h:
 
@@ -360,3 +363,9 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
 ../src/main/../game/../skybox/Skybox.h:
 
 ../src/main/../game/../skybox/../shader/Shader.h:
+
+../src/main/../game/../postFX/PostFX.h:
+
+../src/main/../game/../postFX/../shader/Shader.h:
+
+../src/main/../game/../postFX/../utils/Utils.h:

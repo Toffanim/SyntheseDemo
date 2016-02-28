@@ -31,6 +31,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw_gl3.h"
 #include "../skybox/Skybox.h"
+#include "../postFX/PostFX.h"
+
 struct room
 {
     bool murSud;

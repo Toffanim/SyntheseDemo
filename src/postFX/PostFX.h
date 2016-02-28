@@ -11,7 +11,7 @@
 
 #include "glew/glew.h"
 #include "../shader/Shader.h"
-
+#include "../utils/Utils.h"
 namespace PostFX
 {
     GLuint blur(Shader s, GLuint texture, int amount);    

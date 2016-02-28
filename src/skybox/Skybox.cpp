@@ -71,6 +71,8 @@ Skybox::Skybox( const vector<const GLchar*>& faces )
     glBindVertexArray(0);
     
     texture_id = loadCubemap(faces);
+
+    Utils::checkGlError("Load skybox");
 }
 
 Skybox::~Skybox()
@@ -102,7 +104,7 @@ GLuint Skybox::loadCubemap(const vector<const GLchar*>& faces)
     for(GLuint i = 0; i < faces.size(); i++)
     {
         image = stbi_load(faces[i], &x, &y, &comp, STBI_rgb);
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
         stbi_image_free(image);
     }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -112,14 +114,15 @@ GLuint Skybox::loadCubemap(const vector<const GLchar*>& faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 
+    Utils::checkGlError("Load cubemap");
+
     return textureID;
 }
 
 
 void Skybox::display( glm::mat4 view, glm::mat4 proj, GLuint depth )
 {
-        glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
-        glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
         shader->use();             
         glUniformMatrix4fv(glGetUniformLocation(shader->getProgram(), "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shader->getProgram(), "projection"), 1, GL_FALSE, glm::value_ptr(proj));
@@ -135,4 +138,5 @@ void Skybox::display( glm::mat4 view, glm::mat4 proj, GLuint depth )
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // Set depth function back to default
         shader->unuse();
+        Utils::checkGlError("Display skybox");
 }
