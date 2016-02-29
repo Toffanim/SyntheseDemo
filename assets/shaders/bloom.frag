@@ -28,7 +28,7 @@ vec3 toneMapping( vec3 x )
 
 void main()
 { 
-    const float exposureAdjustment = 8.0; 
+    const float exposureAdjustment = 5.0; 
     const float gamma = 2.2;
     const float exposureBias = 0.5;   
 

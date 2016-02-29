@@ -772,39 +772,28 @@ int Game::mainLoop()
         Utils::checkGlError("poiintlight");
 
         // Draw skybox as last
+        glm::vec4 t = mvp * ((-100.f) * glm::vec4(-1.0, -1.0, 0.0, 1.0));
+        glm::vec3 sunDir = glm::vec3(t)/t.w;
+        std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
         view = glm::mat4(glm::mat3(p.getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-        skybox.display(view, projection, gbufferTextures[2]);
+        skybox.display(view, projection, sunDir, gbufferTextures[2]);
+        
         Utils::checkGlError("Skybox");
         glDisable(GL_BLEND);
-
-        //Draw final frame on screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindVertexArray(vao[2]);
-        glViewport(0,0, screenWidth/2, screenHeight);
-        blitHDRShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture( GL_TEXTURE_2D, fxTextures[0]);
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        blitHDRShader.unuse();
-        glViewport(screenWidth/2, 0, screenWidth/2, screenHeight);
-        blitShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture( GL_TEXTURE_2D, fxTextures[0]);
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        blitShader.unuse();
 
         glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
         glClear(GL_COLOR_BUFFER_BIT);
+   
         glViewport(0,0, screenWidth, screenHeight);
         brightShader.use();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[0] );
+        glBindVertexArray(vao[2]);
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
         brightShader.unuse();
 
-        int amount = 10;
+        int amount = 50;
         GLboolean horizontal = true, first_iteration = true;
         //amount = amount + (amount%2);
         blurShader.use();
@@ -815,7 +804,6 @@ int Game::mainLoop()
             glBindTexture(
                 GL_TEXTURE_2D, first_iteration ? fxTextures[1] : fxTextures[ 2 + !horizontal ]
                           ); 
-            glBindVertexArray(vao[2]);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
             horizontal = !horizontal;
             if (first_iteration)
@@ -823,9 +811,12 @@ int Game::mainLoop()
         }
         blurShader.unuse();
 
+      
+        
         bloomShader.use();
         glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
+        glClear(GL_COLOR_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
         glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "scene"), 0);
@@ -834,8 +825,20 @@ int Game::mainLoop()
         glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "bloomBlur"), 1);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
         bloomShader.unuse();
+                Utils::checkGlError("bloom");
         
-/*
+        //Draw final frame on screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBindVertexArray(vao[2]);
+        glViewport(0,0, screenWidth, screenHeight);
+        blitShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture( GL_TEXTURE_2D, fxTextures[1]);
+        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
+        blitShader.unuse();
+                Utils::checkGlError("blit");
+#if 0
         //lightingShader.use();
         simpleShader.use();
         glViewport(0,0,screenWidth, screenHeight);
@@ -852,9 +855,9 @@ int Game::mainLoop()
         }
         // Actualisation de la fenêtre
         simpleShader.unuse();
- 
+#endif 
 
-        */
+        
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         blitShader.use();
         glActiveTexture(GL_TEXTURE0);
@@ -880,7 +883,7 @@ int Game::mainLoop()
         // Viewport 
         glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
         // Bind texture
-        glBindTexture(GL_TEXTURE_2D, fxTextures[ 1 ]);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[ 3 ]);
         // Draw quad
         glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
 
