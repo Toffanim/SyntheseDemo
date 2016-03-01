@@ -22,11 +22,13 @@ class Shader
 public:
     Shader(std::string name);
     ~Shader();
+    void attach( GLuint shader );
     void attach( int type, const char* filename);
     void link();
     void unuse();
     GLuint getProgram() { return(program_handle); }
     void use();
+    GLuint operator[](int idx){ return(handles[idx]);}
 private :
     std::vector<GLuint> handles;
     GLuint program_handle;

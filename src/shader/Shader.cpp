@@ -33,6 +33,11 @@ void Shader::unuse()
     glUseProgram(0);
 }
 
+void Shader::attach(GLuint shader)
+{
+    handles.push_back(shader);
+}
+
 void Shader::attach(int type, const char* filename)
 {
     char* mem=read_file(filename);

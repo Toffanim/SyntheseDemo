@@ -31,8 +31,8 @@ void Game::startupGLDiagnostics()
     if( !GLEW_VERSION_3_0 )
     {
         printf( "OpenGL 3.0 not supported.\n" 
-            "Please update your drivers and/or buy a better graphics card."
-        );
+                "Please update your drivers and/or buy a better graphics card."
+                );
     }
 }
 
@@ -315,14 +315,14 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     FboManager& fboManager = Manager<FboManager>::instance();
 
     glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
-                                            (float)screenWidth/(float)screenHeight,
-                                            0.1f, 100.0f);
+        (float)screenWidth/(float)screenHeight,
+        0.1f, 100.0f);
     glm::mat4 view = glm::mat4();
 
     int instanceCount = 4;
     int pointLightCount = 5;
-    int directionalLightCount = 1;
-    int spotLightCount = 4;
+    int directionalLightCount = 0;
+    int spotLightCount = 1;
     p->move(times.deltaTime);
     float t = times.globalTime;       
     //Clean FBOs
@@ -364,6 +364,83 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindVertexArray(vaoManager["plane"]);
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["gbuffer"]->unuse();
+
+    // Shadow passes
+    struct SpotLight
+    {
+    glm::vec3 position;
+    float angle;
+    glm::vec3 direction;
+    float penumbraAngle;
+    glm::vec3 color;
+    float intensity;
+    glm::mat4 worldToLightScreen; 
+};
+
+#if 1
+    const int uboSize = 512;
+    const int SPOT_LIGHT_COUNT = 1;
+    // Map the spot light data UBO
+    glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    char * spotLightBuffer = (char *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize * SPOT_LIGHT_COUNT, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    // Bind the shadow FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["shadow"]);
+    // Use shadow program
+    shaderManager["shadow"]->use();
+    glViewport(0, 0, 1024, 1024);
+
+    for (int i = 0; i < spotLightCount; ++i)
+    {
+    // Setup light data
+#if 1                
+    glm::vec3 lp(i*2, 5.f, i*2);
+    glm::vec3 ld(-1.f, -1.f, 0.f);
+    float angle = 45.f;
+    float penumbraAngle = 50.f;
+    glm::vec3 color(1.f, 1.f, 1.f); 
+#else
+    float iF = (float) i +1.f;
+    glm::vec3 lp((spotLightCount*2.f*sinf(t)) * cosf(t/iF), 5.f + sinf(t / iF), fabsf(spotLightCount*2.f*cosf(t)) * sinf(t/iF));
+    glm::vec3 ld(sinf(t*10.0+i), -1.0, 0.0);
+    float angle = 45.f + 20.f * cos(t + i);
+    float penumbraAngle = 60.f + 20.f * cos(t + i);
+    glm::vec3 color(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)), 0.5f + 0.5f-fabsf(cosf(t+i))); 
+#endif            
+    // Light space matrices
+    glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
+    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 0.f, -1.f));
+    glm::mat4 objectToWorld;
+    glm::mat4 objectToLight = worldToLight * objectToWorld;
+    glm::mat4 objectToLightScreen = projection * objectToLight;
+    SpotLight s = { 
+    glm::vec3( worldToView * glm::vec4(lp, 1.f)), angle,
+        glm::vec3( worldToView * glm::vec4(ld, 0.f)), penumbraAngle,
+        color, 30.f, 
+        projection * worldToLight * glm::inverse(worldToView)
+        };
+    *((SpotLight *) (spotLightBuffer + i * uboSize)) = s;
+    //std::cout << glm::to_string(worldToLight) << std::endl;
+    // Attach shadow texture for current light
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
+    // Clear only the depth buffer
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Update scene uniforms
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
+
+    // Render the scene
+    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
+    glBindVertexArray(vaoManager["cube"]);
+    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
+    glBindVertexArray(vaoManager["plane"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    }        
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif  
 /*       
          glBindFramebuffer(GL_FRAMEBUFFER, 0);
          shaderManager["blit"]->use();
@@ -380,6 +457,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx0"], 0);
 
+    glViewport(0,0,screenWidth, screenHeight);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -423,7 +501,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 }
     shaderManager["pointLight"]->unuse();        
-    // Render directional lights
+#if 1
+// Render directional lights
     shaderManager["dirLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["dirLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
     glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "ColorBuffer"), 0);
@@ -451,51 +530,71 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 }
     shaderManager["dirLight"]->unuse();
-    // Render spot lights
+#endif
+
+#if 1
+// Render spot lights
     shaderManager["spotLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["spotLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
     glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "ColorBuffer"), 0);
     glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "NormalBuffer"), 1);
     glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "DepthBuffer"), 2);
-    struct SpotLight
-    {
-    glm::vec3 position;
-    float angle;
-    glm::vec3 direction;
-    float penumbraAngle;
-    glm::vec3 color;
-    float intensity;
-};
+    glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "Shadow"), 3);
+
+    glActiveTexture(GL_TEXTURE3);
     for (int i = 0; i < spotLightCount; ++i)
     {
+    glBindTexture(GL_TEXTURE_2D, textureManager["shadow"+to_string(i)]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    glm::vec3 lp(i*2, 5.f, i*2);
+    glm::vec3 ld(-1.f, -1.f, 0.f);
+    float angle = 45.f;
+    float penumbraAngle = 50.f;
+    glm::vec3 color(1.f, 1.f, 1.f);
+
+    // Light space matrices
+    glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
+    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 0.f, -1.f));
+    glm::mat4 objectToWorld;
+    glm::mat4 objectToLight = worldToLight * objectToWorld;
+    glm::mat4 objectToLightScreen = projection * objectToLight;
     SpotLight s = { 
-    glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
+        glm::vec3( worldToView * glm::vec4(lp, 1.f)), angle,
+        glm::vec3( worldToView * glm::vec4(ld, 0.f)), penumbraAngle,
+        color, 30.f, 
+        projection * worldToLight * glm::inverse(worldToView)
+    };
+#if 0
+    SpotLight s = { 
+        glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
         glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
         glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
-        };
+    };
+#endif
     SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     *spotLightBuffer = s;
     glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["spotLight"]->getProgram(), "light"), fboManager["ubo"]);
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-}  
+    }  
     //glDisable(GL_BLEND);
     shaderManager["spotLight"]->unuse();
+#endif
+ 
     Utils::checkGlError("poiintlight");
 
     // Draw skybox as last
     //TODO(marc) : correct sun , this is not worling properly
     glm::vec4 sunNDC = mvp * ((-100.f) * glm::vec4(-1.0, -1.0, 0.0, 1.0));
     glm::vec3 sunDir = glm::vec3(sunNDC)/sunNDC.w;
-    std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
+    //std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
     view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-    skybox->display(view, projection, sunDir, textureManager["gBufferColor"]);
+    skybox->display(view, projection, sunDir, textureManager["gBufferDepth"]);
         
     Utils::checkGlError("Skybox");
     glDisable(GL_BLEND);
 
-#if 1
+
     glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -508,24 +607,24 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["bright"]->unuse();
 
-    int amount = 50;
+    int amount = 20;
     GLboolean horizontal = true, first_iteration = true;
     //amount = amount + (amount%2);
     shaderManager["blur"]->use();
     for (GLuint i = 0; i < amount; i++)
     {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager[ "fx"+ to_string( 2 + horizontal) ], 0);
-    glUniform1i(glGetUniformLocation(shaderManager["blur"]->getProgram(), "horizontal"), horizontal);
-    glBindTexture(
-        GL_TEXTURE_2D, first_iteration ? textureManager["fx1"] : textureManager[ "fx" + to_string( 2 + !horizontal) ]
-                  ); 
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-    horizontal = !horizontal;
-    if (first_iteration)
-        first_iteration = false;
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager[ "fx"+ to_string( 2 + horizontal) ], 0);
+        glUniform1i(glGetUniformLocation(shaderManager["blur"]->getProgram(), "horizontal"), horizontal);
+        glBindTexture(
+            GL_TEXTURE_2D, first_iteration ? textureManager["fx1"] : textureManager[ "fx" + to_string( 2 + !horizontal) ]
+                      ); 
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+        horizontal = !horizontal;
+        if (first_iteration)
+            first_iteration = false;
     }
     shaderManager["blur"]->unuse();
-        
+    
     shaderManager["bloom"]->use();
     glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
@@ -539,7 +638,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     shaderManager["bloom"]->unuse();
     Utils::checkGlError("bloom");
-#endif      
+      
     //Draw final frame on screen
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -551,7 +650,9 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blitHDR"]->unuse();
     Utils::checkGlError("blit");
+
 #if 0
+    //NOTE(marc) : hair rendering test, don't mind this
     //lightingShader.use();
     simpleShader.use();
     glViewport(0,0,screenWidth, screenHeight);
@@ -645,18 +746,15 @@ void Game::loadAssets()
     textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
 
     //DEBUG SHADERS
-    Shader* simpleShader = new Shader("Simple shader");
-    simpleShader->attach(GL_VERTEX_SHADER, "assets/shaders/simple.vert");
-    simpleShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/simple.frag");
-    simpleShader->link();
-
     Shader* blitShader = new Shader("Blit shader");
     blitShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
     blitShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
     blitShader->link();
 
+    GLuint blitVertShader = (*blitShader)[0];
+
     Shader* blitHDRShader = new Shader("HDR blit shader");
-    blitHDRShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    blitHDRShader->attach(blitVertShader);
     blitHDRShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
     blitHDRShader->link();
 
@@ -666,18 +764,23 @@ void Game::loadAssets()
     gbuffer->attach(GL_FRAGMENT_SHADER, "assets/shaders/gbuffer.frag");
     gbuffer->link();
 
+    Shader* shadowShader = new Shader( "Shadows" );
+    shadowShader->attach( (*gbuffer)[0] );
+    shadowShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/shadow.frag");
+    shadowShader->link();
+    
     Shader* plShader = new Shader("Point light");
-    plShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    plShader->attach(blitVertShader);
     plShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/pointlight.frag");
     plShader->link();
 
     Shader* slShader = new Shader("Spot light");
-    slShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    slShader->attach(blitVertShader);
     slShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/spotlight.frag");
     slShader->link();
 
     Shader* dlShader = new Shader("Directional light");
-    dlShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    dlShader->attach(blitVertShader);
     dlShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
     dlShader->link();
 
@@ -688,23 +791,24 @@ void Game::loadAssets()
     blurShader->link();
 
     Shader* brightShader = new Shader("Bright shader");
-    brightShader->attach(GL_VERTEX_SHADER, "assets/shaders/extractBright.vert");
+    brightShader->attach(blitVertShader);
     brightShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/extractBright.frag");
     brightShader->link();
 
     Shader* bloomShader = new Shader("Bloom shader");
-    bloomShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    bloomShader->attach(blitVertShader);
     bloomShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
     bloomShader->link();
 
+    
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "shadow", shadowShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "pointLight", plShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "spotLight", slShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "blur", blurShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "bloom", bloomShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "bright", brightShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "gbuffer", gbuffer));
-    shaderManager.getManaged().insert( pair<string, Shader*>( "simple", simpleShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "blit", blitShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "blitHDR", blitHDRShader));
     
@@ -857,7 +961,7 @@ void Game::loadAssets()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-}
+    }
 
     // Attach first fx texture to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
@@ -884,16 +988,55 @@ void Game::loadAssets()
     glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
+
+
+    // Create shadow FBO
+    GLuint shadowFbo;
+    glGenFramebuffers(1, &shadowFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
     
-    //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
+    // Create shadow textures
+    const int SPOT_LIGHT_SHADOW_RES = 1024;
+    const int SPOT_LIGHT_COUNT = 1;
+    GLuint shadowTextures[SPOT_LIGHT_COUNT];
+    glGenTextures(SPOT_LIGHT_COUNT, shadowTextures);
+    for (int i = 0; i < SPOT_LIGHT_COUNT; ++i) 
+    {
+    glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+#if 1        
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
+#endif
+    textureManager.getManaged().insert( pair<string, Tex>( "shadow"+to_string(i), {shadowTextures[i]}));
+}
+fboManager.getManaged().insert(pair<string, FBO>( "shadow", {shadowFbo}));
+// Create a render buffer since we don't need to read shadow color 
+// in a texture
+GLuint shadowRenderBuffer;
+glGenRenderbuffers(1, &shadowRenderBuffer);
+glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
+glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES);
+
+// Attach the first texture to the depth attachment
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
+
+// Attach the renderbuffer
+glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
+    
+//manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
 }
 
 //Main rendering loop
 int Game::mainLoop()
 {
     /*
-     Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
-.     */
+      Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
+      .     */
     Player* p = new Player();
     
     glfwSetKeyCallback( window, key_callback);
@@ -901,7 +1044,7 @@ int Game::mainLoop()
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     loadAssets();
-        //create skybox
+    //create skybox
     vector<const GLchar*> faces;
     faces.push_back("assets/skyboxes/Test/xpos.png");
     faces.push_back("assets/skyboxes/Test/xneg.png");
@@ -912,16 +1055,16 @@ int Game::mainLoop()
     Skybox* skybox = new Skybox(faces); 
     Utils::checkGlError("skybox error");
 
-    #if 1
+#if 1
 
 
     //Make hair
     std::vector<Hair> vh;
     for(int i = 0; i < 300; ++i)
     {
-       Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
-       h.addForce( glm::vec3(0.01, 0.0, 0.0) );
-       vh.push_back(h);
+        Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
+        h.addForce( glm::vec3(0.01, 0.0, 0.0) );
+        vh.push_back(h);
     }
     glLineWidth(0.2f);
 
