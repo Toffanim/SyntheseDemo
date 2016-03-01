@@ -152,20 +152,21 @@ ifeq ($(config),release32)
 endif
 
 OBJECTS := \
-	$(OBJDIR)/Main.o \
 	$(OBJDIR)/Skybox.o \
-	$(OBJDIR)/Camera.o \
-	$(OBJDIR)/Shader.o \
-	$(OBJDIR)/Actor.o \
 	$(OBJDIR)/Controller.o \
-	$(OBJDIR)/Game.o \
-	$(OBJDIR)/PostFX.o \
-	$(OBJDIR)/Model.o \
-	$(OBJDIR)/Mesh.o \
-	$(OBJDIR)/Player.o \
 	$(OBJDIR)/Utils.o \
+	$(OBJDIR)/Game.o \
+	$(OBJDIR)/Player.o \
+	$(OBJDIR)/Main.o \
+	$(OBJDIR)/Camera.o \
+	$(OBJDIR)/Actor.o \
 	$(OBJDIR)/ModelManager.o \
+	$(OBJDIR)/Manager.o \
 	$(OBJDIR)/ControllerManager.o \
+	$(OBJDIR)/Mesh.o \
+	$(OBJDIR)/Model.o \
+	$(OBJDIR)/PostFX.o \
+	$(OBJDIR)/Shader.o \
 
 RESOURCES := \
 
@@ -226,46 +227,49 @@ $(GCH): $(PCH)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 endif
 
-$(OBJDIR)/Main.o: ../src/main/Main.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Skybox.o: ../src/skybox/Skybox.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Camera.o: ../src/camera/Camera.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Shader.o: ../src/shader/Shader.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Actor.o: ../src/actor/Actor.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Controller.o: ../src/controller/Controller.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Utils.o: ../src/utils/Utils.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Game.o: ../src/game/Game.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/PostFX.o: ../src/postFX/PostFX.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Model.o: ../src/mesh/Model.cpp
-	@echo $(notdir $<)
-	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Mesh.o: ../src/mesh/Mesh.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/Player.o: ../src/player/Player.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
-$(OBJDIR)/Utils.o: ../src/utils/Utils.cpp
+$(OBJDIR)/Main.o: ../src/main/Main.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Camera.o: ../src/camera/Camera.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Actor.o: ../src/actor/Actor.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/ModelManager.o: ../src/managers/ModelManager.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Manager.o: ../src/managers/Manager.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/ControllerManager.o: ../src/managers/ControllerManager.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Mesh.o: ../src/mesh/Mesh.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Model.o: ../src/mesh/Model.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/PostFX.o: ../src/postFX/PostFX.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/Shader.o: ../src/shader/Shader.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 

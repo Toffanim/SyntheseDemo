@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include "../managers/ModelManager.h"
+#include "../managers/Manager.h"
 #include "../managers/ControllerManager.h"
 #include "GLFW/glfw3.h"
 #include "stb/stb_image.h"
@@ -45,6 +46,15 @@ struct room
     int offsetY;
 };
 
+struct Times
+{
+    float startTime = 0.f;
+    float previousTime = 0.f;
+    float elapsedTime = 0.f;
+    float deltaTime = 0.f;
+    float globalTime = 0.f;    
+};
+
 class Game
 {    
 public :    
@@ -53,7 +63,8 @@ public :
     void close();
     int mainLoop();
     void loadAssets();
-    void drawScene( );   
+    void drawScene( );
+    void scene1(Player* p, Skybox* skybox, Times times);
     
 private :
     GLFWwindow* window;

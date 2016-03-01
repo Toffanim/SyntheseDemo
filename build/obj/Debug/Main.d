@@ -73,6 +73,8 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
  ../lib/glm/gtc/../gtc/quaternion.inl ../lib/glm/gtc/type_ptr.inl \
  ../src/main/../game/../managers/ModelManager.h \
  ../src/main/../game/../managers/../mesh/Model.h \
+ ../src/main/../game/../managers/Manager.h \
+ ../src/main/../game/../managers/../shader/Shader.h \
  ../src/main/../game/../managers/ControllerManager.h \
  ../lib/stb/stb_image.h ../lib/imgui/imgui.h ../lib/imgui/imconfig.h \
  ../lib/imgui/imgui_impl_glfw_gl3.h \
@@ -349,6 +351,10 @@ obj/Debug/Main.o: ../src/main/Main.cpp ../src/main/Main.h \
 ../src/main/../game/../managers/ModelManager.h:
 
 ../src/main/../game/../managers/../mesh/Model.h:
+
+../src/main/../game/../managers/Manager.h:
+
+../src/main/../game/../managers/../shader/Shader.h:
 
 ../src/main/../game/../managers/ControllerManager.h:
 

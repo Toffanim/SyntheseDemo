@@ -137,13 +137,6 @@ void Game::drawScene( )
 {    
 }
 
-//Load models into the singleton modelmanager
-void Game::loadAssets()
-{
-    ModelManager& manager = ModelManager::getInstance();
-    //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
-}
-
 struct Particle
 {
     glm::vec3 position;
@@ -313,17 +306,313 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     cm.mouseCallback( window, button, action, mods );
 }
 
-//Main rendering loop
-int Game::mainLoop()
+void Game::scene1( Player* p, Skybox* skybox, Times times )
 {
-    /*
-     Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
-.     */
-    Player p = Player();
-    loadAssets();
+    //Get needed assets
+    ShaderManager& shaderManager = Manager<ShaderManager>::instance();
+    TextureManager& textureManager = Manager<TextureManager>::instance();
+    VaoManager& vaoManager = Manager<VaoManager>::instance();
+    FboManager& fboManager = Manager<FboManager>::instance();
 
+    glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
+                                            (float)screenWidth/(float)screenHeight,
+                                            0.1f, 100.0f);
+    glm::mat4 view = glm::mat4();
 
-        // Load images and upload textures
+    int instanceCount = 4;
+    int pointLightCount = 5;
+    int directionalLightCount = 1;
+    int spotLightCount = 4;
+    p->move(times.deltaTime);
+    float t = times.globalTime;       
+    //Clean FBOs
+    glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport( 0, 0, screenWidth, screenHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["gbuffer"] );
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //Create matrices
+    glm::mat4 worldToView = p->getCamera()->getViewMatrix();
+    glm::mat4 objectToWorld;
+    glm::mat4 mv = worldToView * objectToWorld;
+    glm::mat4 mvp = projection * mv;
+    glm::mat4 inverseProjection = glm::inverse( projection );
+
+    //Render in GBUFFER
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["gbuffer"]);
+    shaderManager["gbuffer"]->use();
+    // Select textures
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["brick_diff"]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textureManager["brick_spec"]);
+    // Upload uniforms
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+    glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "InstanceCount"), (int) instanceCount);
+    glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "SpecularPower"), 30.f);
+    glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), t);
+    glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Diffuse"), 0);
+    glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Specular"), 1);
+    //Render scene
+    glBindVertexArray(vaoManager["cube"]);
+    glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+    glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
+    glBindVertexArray(vaoManager["plane"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["gbuffer"]->unuse();
+/*       
+         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+         shaderManager["blit"]->use();
+         glActiveTexture(GL_TEXTURE0);
+         glBindVertexArray(vaoManager["quad"]);
+         // Viewport 
+         glViewport( 0, 0, screenWidth, screenHeight  );
+         // Bind texture
+         glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
+         // Draw quad
+         glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+*/
+    //Render lighting in postfx fbo
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx0"], 0);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    Utils::checkGlError("before lights");
+    // Select textures
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferNormals"]);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
+    // Bind the same VAO for all lights
+    glBindVertexArray(vaoManager["quad"]);
+  
+    // Render point lights
+    shaderManager["pointLight"]->use();
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+    glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "ColorBuffer"), 0);
+    glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "NormalBuffer"), 1);
+    glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "DepthBuffer"), 2);
+    struct PointLight
+    {
+    glm::vec3 position;
+    int padding;
+    glm::vec3 color;
+    float intensity;
+};
+    for (int i = 0; i < pointLightCount; ++i)
+    {
+    glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    PointLight p = { 
+    glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
+        glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
+        0.5f + fabsf(cosf(t+i))
+        };
+    PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    *pointLightBuffer = p;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["pointLight"]->getProgram(), "light"), fboManager["ubo"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+}
+    shaderManager["pointLight"]->unuse();        
+    // Render directional lights
+    shaderManager["dirLight"]->use();
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["dirLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+    glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "ColorBuffer"), 0);
+    glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "NormalBuffer"), 1);
+    glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "DepthBuffer"), 2);
+    struct DirectionalLight
+    {
+    glm::vec3 direction;
+    int padding;
+    glm::vec3 color;
+    float intensity;
+};
+    for (int i = 0; i < directionalLightCount; ++i)
+    {
+    glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    DirectionalLight d = { 
+    glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
+        glm::vec3(1.0, 1.0, 1.0),
+        0.8f
+        };
+    DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    *directionalLightBuffer = d;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["dirLight"]->getProgram(), "light"), fboManager["ubo"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+}
+    shaderManager["dirLight"]->unuse();
+    // Render spot lights
+    shaderManager["spotLight"]->use();
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["spotLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+    glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "ColorBuffer"), 0);
+    glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "NormalBuffer"), 1);
+    glUniform1i(glGetUniformLocation(shaderManager["spotLight"]->getProgram(), "DepthBuffer"), 2);
+    struct SpotLight
+    {
+    glm::vec3 position;
+    float angle;
+    glm::vec3 direction;
+    float penumbraAngle;
+    glm::vec3 color;
+    float intensity;
+};
+    for (int i = 0; i < spotLightCount; ++i)
+    {
+    glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    SpotLight s = { 
+    glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
+        glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
+        glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
+        };
+    SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    *spotLightBuffer = s;
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["spotLight"]->getProgram(), "light"), fboManager["ubo"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+}  
+    //glDisable(GL_BLEND);
+    shaderManager["spotLight"]->unuse();
+    Utils::checkGlError("poiintlight");
+
+    // Draw skybox as last
+    //TODO(marc) : correct sun , this is not worling properly
+    glm::vec4 sunNDC = mvp * ((-100.f) * glm::vec4(-1.0, -1.0, 0.0, 1.0));
+    glm::vec3 sunDir = glm::vec3(sunNDC)/sunNDC.w;
+    std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
+    view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
+    skybox->display(view, projection, sunDir, textureManager["gBufferColor"]);
+        
+    Utils::checkGlError("Skybox");
+    glDisable(GL_BLEND);
+
+#if 1
+    glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+   
+    glViewport(0,0, screenWidth, screenHeight);
+    shaderManager["bright"]->use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx0"] );
+    glBindVertexArray(vaoManager["quad"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["bright"]->unuse();
+
+    int amount = 50;
+    GLboolean horizontal = true, first_iteration = true;
+    //amount = amount + (amount%2);
+    shaderManager["blur"]->use();
+    for (GLuint i = 0; i < amount; i++)
+    {
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager[ "fx"+ to_string( 2 + horizontal) ], 0);
+    glUniform1i(glGetUniformLocation(shaderManager["blur"]->getProgram(), "horizontal"), horizontal);
+    glBindTexture(
+        GL_TEXTURE_2D, first_iteration ? textureManager["fx1"] : textureManager[ "fx" + to_string( 2 + !horizontal) ]
+                  ); 
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    horizontal = !horizontal;
+    if (first_iteration)
+        first_iteration = false;
+    }
+    shaderManager["blur"]->unuse();
+        
+    shaderManager["bloom"]->use();
+    glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx0"]);
+    glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "scene"), 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
+    glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "bloomBlur"), 1);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["bloom"]->unuse();
+    Utils::checkGlError("bloom");
+#endif      
+    //Draw final frame on screen
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(vaoManager["quad"]);
+    glViewport(0,0, screenWidth, screenHeight);
+    shaderManager["blitHDR"]->use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture( GL_TEXTURE_2D, textureManager["fx1"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["blitHDR"]->unuse();
+    Utils::checkGlError("blit");
+#if 0
+    //lightingShader.use();
+    simpleShader.use();
+    glViewport(0,0,screenWidth, screenHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    for (int i =0; i < vh.size(); i++)
+    {
+        if ( glfwGetTime() < 5 )
+            vh[i].addForce(glm::vec3(0.1, 0.5,0.0));
+            
+        vh[i].update();
+        vh[i].draw();
+    }
+    // Actualisation de la fenêtre
+    simpleShader.unuse();
+#endif 
+
+        
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    shaderManager["blit"]->use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(vaoManager["quad"]);
+    // Viewport 
+    glViewport( 0, 0, screenWidth/4, screenHeight/4  );
+    // Bind texture
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
+    // Draw quad
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    // Viewport 
+    glViewport( screenWidth/4, 0, screenWidth/4, screenHeight/4  );
+    // Bind texture
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferNormals"]);
+    // Draw quad
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    // Viewport 
+    glViewport( screenWidth/4 * 2, 0, screenWidth/4, screenHeight/4  );
+    // Bind texture
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
+    // Draw quad
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    // Viewport 
+    glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
+    // Bind texture
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
+    // Draw quad
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["blit"]->unuse();
+}
+
+//Load models into the singleton modelmanager
+void Game::loadAssets()
+{
+
+    std::cout << std::endl << "---- LOAD ASSETS AND CREATE FBOs ---" << std::endl << std::endl;
+    //Manager<Model*>& modelManager = Manager<Model*>::getInstance();
+    ShaderManager& shaderManager = Manager<ShaderManager>::instance();
+    TextureManager& textureManager = Manager<TextureManager>::instance();
+    VaoManager& vaoManager = Manager<VaoManager>::instance();
+    FboManager& fboManager = Manager<FboManager>::instance();
+    // Load images and upload textures
     GLuint textures[2];
     glGenTextures(2, textures);
     int x;
@@ -352,7 +641,73 @@ int Game::mainLoop()
     glGenerateMipmap(GL_TEXTURE_2D);
     fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
 
+    textureManager.getManaged().insert( pair<string, Tex>( "brick_diff", {textures[0]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
 
+    //DEBUG SHADERS
+    Shader* simpleShader = new Shader("Simple shader");
+    simpleShader->attach(GL_VERTEX_SHADER, "assets/shaders/simple.vert");
+    simpleShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/simple.frag");
+    simpleShader->link();
+
+    Shader* blitShader = new Shader("Blit shader");
+    blitShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    blitShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
+    blitShader->link();
+
+    Shader* blitHDRShader = new Shader("HDR blit shader");
+    blitHDRShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    blitHDRShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
+    blitHDRShader->link();
+
+    //RENDERING SHADERS
+    Shader* gbuffer = new Shader("G-buffer");
+    gbuffer->attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
+    gbuffer->attach(GL_FRAGMENT_SHADER, "assets/shaders/gbuffer.frag");
+    gbuffer->link();
+
+    Shader* plShader = new Shader("Point light");
+    plShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    plShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/pointlight.frag");
+    plShader->link();
+
+    Shader* slShader = new Shader("Spot light");
+    slShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    slShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/spotlight.frag");
+    slShader->link();
+
+    Shader* dlShader = new Shader("Directional light");
+    dlShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    dlShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
+    dlShader->link();
+
+    //POSTFX SHADERS
+    Shader* blurShader = new Shader("Blur shader");
+    blurShader->attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
+    blurShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blur.frag");
+    blurShader->link();
+
+    Shader* brightShader = new Shader("Bright shader");
+    brightShader->attach(GL_VERTEX_SHADER, "assets/shaders/extractBright.vert");
+    brightShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/extractBright.frag");
+    brightShader->link();
+
+    Shader* bloomShader = new Shader("Bloom shader");
+    bloomShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
+    bloomShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
+    bloomShader->link();
+
+    shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "pointLight", plShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "spotLight", slShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "blur", blurShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "bloom", bloomShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "bright", brightShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "gbuffer", gbuffer));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "simple", simpleShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "blit", blitShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "blitHDR", blitHDRShader));
+    
     // Load geometry
     int cube_triangleCount = 12;
     int cube_triangleList[] = {0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 19, 17, 20, 21, 22, 23, 24, 25, 26, };
@@ -434,68 +789,10 @@ int Game::mainLoop()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    vaoManager.getManaged().insert( pair<string, VAO>("cube", {vao[0]}));
+    vaoManager.getManaged().insert( pair<string, VAO>("plane", {vao[1]}));
+    vaoManager.getManaged().insert( pair<string, VAO>("quad", {vao[2]}));    
 
-
-
-    
-    glfwSetKeyCallback( window, key_callback);
-    glfwSetCursorPosCallback(window, cursor_position_callback);
-    glfwSetMouseButtonCallback(window, mouse_button_callback);
-
-    //DEBUG SHADERS
-    Shader simpleShader("Simple shader");
-    simpleShader.attach(GL_VERTEX_SHADER, "assets/shaders/simple.vert");
-    simpleShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/simple.frag");
-    simpleShader.link();
-
-    Shader blitShader("Blit shader");
-    blitShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    blitShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
-    blitShader.link();
-
-    Shader blitHDRShader("HDR blit shader");
-    blitHDRShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    blitHDRShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
-    blitHDRShader.link();
-
-    //RENDERING SHADERS
-    Shader gbuffer("G-buffer");
-    gbuffer.attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
-    gbuffer.attach(GL_FRAGMENT_SHADER, "assets/shaders/gbuffer.frag");
-    gbuffer.link();
-
-    Shader plShader("Point light");
-    plShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    plShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/pointlight.frag");
-    plShader.link();
-
-    Shader slShader("Spot light");
-    slShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    slShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/spotlight.frag");
-    slShader.link();
-
-    Shader dlShader("Directional light");
-    dlShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    dlShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
-    dlShader.link();
-
-
-    //POSTFX SHADERS
-    Shader blurShader("Blur shader");
-    blurShader.attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
-    blurShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/blur.frag");
-    blurShader.link();
-
-    Shader brightShader("Bright shader");
-    brightShader.attach(GL_VERTEX_SHADER, "assets/shaders/extractBright.vert");
-    brightShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/extractBright.frag");
-    brightShader.link();
-
-    Shader bloomShader("Bloom shader");
-    bloomShader.attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
-    bloomShader.attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
-    bloomShader.link();
-    
     // Init frame buffers
     GLuint gbufferFbo;
     GLuint gbufferTextures[3];
@@ -554,33 +851,57 @@ int Game::mainLoop()
     glGenTextures(FX_TEXTURE_COUNT, fxTextures);
     for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
     {
-        glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
+    glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
 
     // Attach first fx texture to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    fboManager.getManaged().insert( pair<string, FBO>( "gbuffer", {gbufferFbo}));
+    fboManager.getManaged().insert( pair<string, FBO>( "fx", {fxFbo}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferColor", {gbufferTextures[0]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferNormals", {gbufferTextures[1]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferDepth", {gbufferTextures[2]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "fx0", {fxTextures[0]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "fx1", {fxTextures[1]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "fx2", {fxTextures[2]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "fx3", {fxTextures[3]}));
 
     //create UBO
     // Update and bind uniform buffer object
     GLuint ubo[1];
     glGenBuffers(1, ubo);
     glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-    //GLint uboSize = 0;
-    //glGetActiveUniformBlockiv(pointlightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
-    //glGetActiveUniformBlockiv(directionallightProgramObject, pointlightLightLocation, GL_UNIFORM_BLOCK_DATA_SIZE, &uboSize);
-
     // Ignore ubo size, allocate it sufficiently big for all light data structures
     GLint uboSize = 512;
 
     glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    //create skybox
+    fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
+    
+    //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
+}
+
+//Main rendering loop
+int Game::mainLoop()
+{
+    /*
+     Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
+.     */
+    Player* p = new Player();
+    
+    glfwSetKeyCallback( window, key_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
+
+    loadAssets();
+        //create skybox
     vector<const GLchar*> faces;
     faces.push_back("assets/skyboxes/Test/xpos.png");
     faces.push_back("assets/skyboxes/Test/xneg.png");
@@ -588,8 +909,11 @@ int Game::mainLoop()
     faces.push_back("assets/skyboxes/Test/yneg.png");
     faces.push_back("assets/skyboxes/Test/zpos.png");
     faces.push_back("assets/skyboxes/Test/zneg.png");
-    Skybox skybox(faces); 
+    Skybox* skybox = new Skybox(faces); 
     Utils::checkGlError("skybox error");
+
+    #if 1
+
 
     //Make hair
     std::vector<Hair> vh;
@@ -601,292 +925,15 @@ int Game::mainLoop()
     }
     glLineWidth(0.2f);
 
-    glm::mat4 projection = glm::perspective(p.getCamera()->getZoom(),
-                                            (float)screenWidth/(float)screenHeight,
-                                            0.1f, 100.0f);
-    glm::mat4 view = glm::mat4();
-
-    int instanceCount = 4;
-    int pointLightCount = 5;
-    int directionalLightCount = 1;
-    int spotLightCount = 4;
-    float t = 0.f;
-    float deltaTime = 0.f;
+    Times t;
     while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
     {
         //ImGui_ImplGlfwGL3_NewFrame();
-        
-        deltaTime = glfwGetTime() -t;
-        t = glfwGetTime();
-        p.move(deltaTime);
-        
-        //Clean FBOs
-        glEnable(GL_DEPTH_TEST);
-        glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glViewport( 0, 0, screenWidth, screenHeight);
-        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo );
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        
-        //Create matrices
-        glm::mat4 worldToView = p.getCamera()->getViewMatrix();
-        glm::mat4 objectToWorld;
-        glm::mat4 mv = worldToView * objectToWorld;
-        glm::mat4 mvp = projection * mv;
-        glm::mat4 inverseProjection = glm::inverse( projection );
-
-        //Render in GBUFFER
-        glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
-        gbuffer.use();
-        // Select textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[0]);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, textures[1]);
-        // Upload uniforms
-        glUniformMatrix4fv(glGetUniformLocation(gbuffer.getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-        glUniformMatrix4fv(glGetUniformLocation(gbuffer.getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "InstanceCount"), (int) instanceCount);
-        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "SpecularPower"), 30.f);
-        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "Time"), t);
-        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "Diffuse"), 0);
-        glUniform1i(glGetUniformLocation(gbuffer.getProgram(), "Specular"), 1);
-        //Render scene
-        glBindVertexArray(vao[0]);
-        glDrawElementsInstanced(GL_TRIANGLES, cube_triangleCount*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
-        glUniform1f(glGetUniformLocation(gbuffer.getProgram(), "Time"), 0.f);
-        glBindVertexArray(vao[1]);
-        glDrawElements(GL_TRIANGLES, plane_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        gbuffer.unuse();
-        
-        //Render lighting in postfx fbo
-        glBindFramebuffer(GL_FRAMEBUFFER, fxFbo);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
-
-        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE);
-              Utils::checkGlError("before lights");
-        // Select textures
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
-        // Bind the same VAO for all lights
-        glBindVertexArray(vao[2]);
-  
-        // Render point lights
-        plShader.use();
-        glUniformMatrix4fv(glGetUniformLocation(plShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
-        glUniform1i(glGetUniformLocation(plShader.getProgram(), "ColorBuffer"), 0);
-        glUniform1i(glGetUniformLocation(plShader.getProgram(), "NormalBuffer"), 1);
-        glUniform1i(glGetUniformLocation(plShader.getProgram(), "DepthBuffer"), 2);
-        struct PointLight
-        {
-            glm::vec3 position;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < pointLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-            PointLight p = { 
-                glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
-                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
-                0.5f + fabsf(cosf(t+i))
-            };
-            PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *pointLightBuffer = p;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(plShader.getProgram(), "light"), ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        }
-
-        
-        // Render directional lights
-        dlShader.use();
-        glUniformMatrix4fv(glGetUniformLocation(dlShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
-        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "ColorBuffer"), 0);
-        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "NormalBuffer"), 1);
-        glUniform1i(glGetUniformLocation(dlShader.getProgram(), "DepthBuffer"), 2);
-        struct DirectionalLight
-        {
-            glm::vec3 direction;
-            int padding;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < directionalLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-             DirectionalLight d = { 
-                glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
-                glm::vec3(1.0, 1.0, 1.0),
-                0.8f
-            };
-            DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *directionalLightBuffer = d;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(dlShader.getProgram(), "light"), ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        }
-
-        // Render spot lights
-        slShader.use();
-        glUniformMatrix4fv(glGetUniformLocation(slShader.getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
-        glUniform1i(glGetUniformLocation(slShader.getProgram(), "ColorBuffer"), 0);
-        glUniform1i(glGetUniformLocation(slShader.getProgram(), "NormalBuffer"), 1);
-        glUniform1i(glGetUniformLocation(slShader.getProgram(), "DepthBuffer"), 2);
-        struct SpotLight
-        {
-            glm::vec3 position;
-            float angle;
-            glm::vec3 direction;
-            float penumbraAngle;
-            glm::vec3 color;
-            float intensity;
-        };
-        for (int i = 0; i < spotLightCount; ++i)
-        {
-            glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-            SpotLight s = { 
-                glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
-                glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
-                glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
-            };
-            SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-            *spotLightBuffer = s;
-            glUnmapBuffer(GL_UNIFORM_BUFFER);
-            glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(slShader.getProgram(), "light"), ubo[0]);
-            glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        }  
-        //glDisable(GL_BLEND);
-        plShader.unuse();
-        Utils::checkGlError("poiintlight");
-
-        // Draw skybox as last
-        glm::vec4 t = mvp * ((-100.f) * glm::vec4(-1.0, -1.0, 0.0, 1.0));
-        glm::vec3 sunDir = glm::vec3(t)/t.w;
-        std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
-        view = glm::mat4(glm::mat3(p.getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-        skybox.display(view, projection, sunDir, gbufferTextures[2]);
-        
-        Utils::checkGlError("Skybox");
-        glDisable(GL_BLEND);
-
-        glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-   
-        glViewport(0,0, screenWidth, screenHeight);
-        brightShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fxTextures[0] );
-        glBindVertexArray(vao[2]);
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        brightShader.unuse();
-
-        int amount = 50;
-        GLboolean horizontal = true, first_iteration = true;
-        //amount = amount + (amount%2);
-        blurShader.use();
-        for (GLuint i = 0; i < amount; i++)
-        {
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[ 2 + horizontal ], 0);
-            glUniform1i(glGetUniformLocation(blurShader.getProgram(), "horizontal"), horizontal);
-            glBindTexture(
-                GL_TEXTURE_2D, first_iteration ? fxTextures[1] : fxTextures[ 2 + !horizontal ]
-                          ); 
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-            horizontal = !horizontal;
-            if (first_iteration)
-                first_iteration = false;
-        }
-        blurShader.unuse();
-
-      
-        
-        bloomShader.use();
-        glBindFramebuffer( GL_FRAMEBUFFER, fxFbo );
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[1], 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, fxTextures[0]);
-        glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "scene"), 0);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, fxTextures[3]);
-        glUniform1i(glGetUniformLocation(bloomShader.getProgram(), "bloomBlur"), 1);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-        bloomShader.unuse();
-                Utils::checkGlError("bloom");
-        
-        //Draw final frame on screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindVertexArray(vao[2]);
-        glViewport(0,0, screenWidth, screenHeight);
-        blitShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture( GL_TEXTURE_2D, fxTextures[1]);
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        blitShader.unuse();
-                Utils::checkGlError("blit");
-#if 0
-        //lightingShader.use();
-        simpleShader.use();
-        glViewport(0,0,screenWidth, screenHeight);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        for (int i =0; i < vh.size(); i++)
-        {
-            if ( glfwGetTime() < 5 )
-                vh[i].addForce(glm::vec3(0.1, 0.5,0.0));
-            
-            vh[i].update();
-            vh[i].draw();
-        }
-        // Actualisation de la fenêtre
-        simpleShader.unuse();
-#endif 
-
-        
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        blitShader.use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindVertexArray(vao[2]);
-        // Viewport 
-        glViewport( 0, 0, screenWidth/4, screenHeight/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( screenWidth/4, 0, screenWidth/4, screenHeight/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( screenWidth/4 * 2, 0, screenWidth/4, screenHeight/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-        // Viewport 
-        glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
-        // Bind texture
-        glBindTexture(GL_TEXTURE_2D, fxTextures[ 3 ]);
-        // Draw quad
-        glDrawElements(GL_TRIANGLES, quad_triangleCount * 3, GL_UNSIGNED_INT, (void*)0);
-
+        t.globalTime = glfwGetTime();
+        t.elapsedTime = t.globalTime - t.startTime;
+        t.deltaTime = t.globalTime - t.previousTime;
+        t.previousTime = t.globalTime;
+        scene1(p, skybox, t);
 #if 0
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");
@@ -904,7 +951,7 @@ int Game::mainLoop()
     }
     //NOTE(marc) : We should properly clean the app, but since this will be the last
     //thing the program will do, it will clean them for us
-
+#endif
     // Close OpenGL window and terminate GLFW
     ImGui_ImplGlfwGL3_Shutdown();
     glfwTerminate();
