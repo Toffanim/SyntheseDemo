@@ -320,8 +320,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glm::mat4 view = glm::mat4();
 
     int instanceCount = 4;
-    int pointLightCount = 5;
-    int directionalLightCount = 0;
+    int pointLightCount = 1;
+    int directionalLightCount = 1;
     int spotLightCount = 1;
     p->move(times.deltaTime);
     float t = times.globalTime;       
@@ -368,16 +368,33 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     // Shadow passes
     struct SpotLight
     {
-    glm::vec3 position;
-    float angle;
-    glm::vec3 direction;
-    float penumbraAngle;
-    glm::vec3 color;
-    float intensity;
-    glm::mat4 worldToLightScreen; 
-};
+        glm::vec3 position;
+        float angle;
+        glm::vec3 direction;
+        float penumbraAngle;
+        glm::vec3 color;
+        float intensity;
+        glm::mat4 worldToLightScreen; 
+    };
 
-#if 1
+    struct DirectionalLight
+    {
+        glm::vec3 direction;
+        int padding;
+        glm::vec3 color;
+        float intensity;
+        glm::mat4 worldToLightScreen;
+    };
+
+    struct PointLight
+    {
+        glm::vec3 position;
+        int padding;
+        glm::vec3 color;
+        float intensity;
+    };
+
+#if 0
     const int uboSize = 512;
     const int SPOT_LIGHT_COUNT = 1;
     // Map the spot light data UBO
@@ -391,34 +408,19 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
     for (int i = 0; i < spotLightCount; ++i)
     {
-    // Setup light data
-#if 1                
-    glm::vec3 lp(i*2, 5.f, i*2);
+    // Setup light data                
+    glm::vec3 lp(5.f, 5.f, i*2);
     glm::vec3 ld(-1.f, -1.f, 0.f);
     float angle = 45.f;
     float penumbraAngle = 50.f;
     glm::vec3 color(1.f, 1.f, 1.f); 
-#else
-    float iF = (float) i +1.f;
-    glm::vec3 lp((spotLightCount*2.f*sinf(t)) * cosf(t/iF), 5.f + sinf(t / iF), fabsf(spotLightCount*2.f*cosf(t)) * sinf(t/iF));
-    glm::vec3 ld(sinf(t*10.0+i), -1.0, 0.0);
-    float angle = 45.f + 20.f * cos(t + i);
-    float penumbraAngle = 60.f + 20.f * cos(t + i);
-    glm::vec3 color(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)), 0.5f + 0.5f-fabsf(cosf(t+i))); 
-#endif            
+          
     // Light space matrices
     glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
-    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 0.f, -1.f));
+    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 1.f, 0.f));
     glm::mat4 objectToWorld;
     glm::mat4 objectToLight = worldToLight * objectToWorld;
     glm::mat4 objectToLightScreen = projection * objectToLight;
-    SpotLight s = { 
-    glm::vec3( worldToView * glm::vec4(lp, 1.f)), angle,
-        glm::vec3( worldToView * glm::vec4(ld, 0.f)), penumbraAngle,
-        color, 30.f, 
-        projection * worldToLight * glm::inverse(worldToView)
-        };
-    *((SpotLight *) (spotLightBuffer + i * uboSize)) = s;
     //std::cout << glm::to_string(worldToLight) << std::endl;
     // Attach shadow texture for current light
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
@@ -440,19 +442,102 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif  
-/*       
-         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-         shaderManager["blit"]->use();
-         glActiveTexture(GL_TEXTURE0);
-         glBindVertexArray(vaoManager["quad"]);
-         // Viewport 
-         glViewport( 0, 0, screenWidth, screenHeight  );
-         // Bind texture
-         glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
-         // Draw quad
-         glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-*/
+#endif
+
+#if 0
+    const int uboSize = 512;
+    const int SPOT_LIGHT_COUNT = 1;
+    // Map the spot light data UBO
+    glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    char * directionalLightBuffer = (char *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, uboSize, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+    // Bind the shadow FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["shadow"]);
+    // Use shadow program
+    shaderManager["shadow"]->use();
+    glViewport(0, 0, 1024, 1024);
+
+    for (int i = 0; i < directionalLightCount; ++i)
+    {
+        glm::vec3 lp = glm::vec3( 4.0, 4.0, 0.0);
+    // Light space matrices
+        glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+        glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.f));
+        glm::mat4 objectToWorld;
+        glm::mat4 objectToLight = worldToLight * objectToWorld;
+        glm::mat4 objectToLightScreen = lightProjection * objectToLight;
+
+    // Attach shadow texture for current light
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
+    // Clear only the depth buffer
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Update scene uniforms
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
+
+    // Render the scene
+    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
+    glBindVertexArray(vaoManager["cube"]);
+    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
+    glBindVertexArray(vaoManager["plane"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    }        
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+
+
+
+#if 1
+    const int uboSize = 512;
+    const int SPOT_LIGHT_COUNT = 1;
+    // Bind the shadow FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, fboManager["plShadow"]);
+    // Use shadow program
+    shaderManager["plShadow"]->use();
+    glViewport(0, 0, 1024, 1024);
+
+    for (int i = 0; i < pointLightCount; ++i)
+    {
+        
+        glm::vec3 lp = glm::vec3( 4.0, 4.0, 0.0);
+    // Light space matrices
+        glm::mat4 lightProjection = glm::perspective( glm::radians(90.f), 1.f, 1.f, 100.f);
+
+        std::vector<glm::mat4> worldToLight;
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(1.0,0.0,0.0), glm::vec3(0.0,-1.0,0.0)));
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(-1.0,0.0,0.0), glm::vec3(0.0,-1.0,0.0)));
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,1.0,0.0), glm::vec3(0.0,0.0,1.0)));
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,-1.0,0.0), glm::vec3(0.0,0.0,-1.0)));
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,0.0,1.0), glm::vec3(0.0,-1.0,0.0)));
+        worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,0.0,-1.0), glm::vec3(0.0,-1.0,0.0)));
+                                   
+        glm::mat4 objectToWorld;
+
+    // Attach shadow texture for current light
+        // glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow"], 0);
+    // Clear only the depth buffer
+    glClear(GL_DEPTH_BUFFER_BIT);
+    // Update scene uniforms
+    for(GLuint i = 0 ; i < 6 ; ++i)
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), ("shadowMatrices[" + to_string(i) + "]").c_str()), 1 , GL_FALSE, glm::value_ptr(worldToLight[i]));
+    glUniform3fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "lightPos"), 1, &lp[0]);
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "model"), 1, GL_FALSE, glm::value_ptr(objectToWorld));
+    // Render the scene
+    glBindVertexArray(vaoManager["cube"]);
+    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+    glBindVertexArray(vaoManager["plane"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+      
+    }        
+    //glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+
+    
     //Render lighting in postfx fbo
     glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx0"], 0);
@@ -472,27 +557,26 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
     // Bind the same VAO for all lights
     glBindVertexArray(vaoManager["quad"]);
-  
+
+#if 1
     // Render point lights
     shaderManager["pointLight"]->use();
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(glm::inverse(mvp)));
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "ColorBuffer"), 0);
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "NormalBuffer"), 1);
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "DepthBuffer"), 2);
-    struct PointLight
-    {
-    glm::vec3 position;
-    int padding;
-    glm::vec3 color;
-    float intensity;
-};
+    glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "Shadow"), 3);
+
+    glActiveTexture(GL_TEXTURE3);
     for (int i = 0; i < pointLightCount; ++i)
     {
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureManager["plShadow"]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
     PointLight p = { 
-    glm::vec3( worldToView * glm::vec4((pointLightCount*cosf(t)) * sinf(t*i), 1.0, fabsf(pointLightCount*sinf(t)) * cosf(t*i), 1.0)), 0,
-        glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i)) ),
-        0.5f + fabsf(cosf(t+i))
+    glm::vec3( glm::vec4(4.f,4.f,0.f, 1.0)),
+        0,
+        glm::vec3(1.0,1.0,1.0),
+        3.0
         };
     PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     *pointLightBuffer = p;
@@ -501,27 +585,35 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 }
     shaderManager["pointLight"]->unuse();        
-#if 1
+#endif
+    
+#if 0
 // Render directional lights
     shaderManager["dirLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["dirLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
     glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "ColorBuffer"), 0);
     glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "NormalBuffer"), 1);
     glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "DepthBuffer"), 2);
-    struct DirectionalLight
-    {
-    glm::vec3 direction;
-    int padding;
-    glm::vec3 color;
-    float intensity;
-};
+    glUniform1i(glGetUniformLocation(shaderManager["dirLight"]->getProgram(), "Shadow"), 3);
+
+    glActiveTexture(GL_TEXTURE3);
     for (int i = 0; i < directionalLightCount; ++i)
     {
+    glBindTexture(GL_TEXTURE_2D, textureManager["shadow" + to_string(i)]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+    glm::vec3 lp = glm::vec3(4.f, 4.0f, 0.0f);
+    // Light space matrices
+    glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+    glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.0f));
+    glm::mat4 objectToWorld;
+    glm::mat4 objectToLight = worldToLight * objectToWorld;
+    glm::mat4 objectToLightScreen = lightProjection * objectToLight;
+        
     DirectionalLight d = { 
     glm::vec3( worldToView * glm::vec4(-1.0, -1.0, 0.0, 0.0)), 0,
         glm::vec3(1.0, 1.0, 1.0),
-        0.8f
+        0.8f,
+        objectToLightScreen * glm::inverse(worldToView)
         };
     DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     *directionalLightBuffer = d;
@@ -532,7 +624,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     shaderManager["dirLight"]->unuse();
 #endif
 
-#if 1
+#if 0
 // Render spot lights
     shaderManager["spotLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["spotLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
@@ -546,7 +638,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     {
     glBindTexture(GL_TEXTURE_2D, textureManager["shadow"+to_string(i)]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
-    glm::vec3 lp(i*2, 5.f, i*2);
+    glm::vec3 lp(5.f, 5.f, i*2);
     glm::vec3 ld(-1.f, -1.f, 0.f);
     float angle = 45.f;
     float penumbraAngle = 50.f;
@@ -554,7 +646,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
     // Light space matrices
     glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
-    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 0.f, -1.f));
+    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 1.f, 0.f));
     glm::mat4 objectToWorld;
     glm::mat4 objectToLight = worldToLight * objectToWorld;
     glm::mat4 objectToLightScreen = projection * objectToLight;
@@ -564,13 +656,6 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         color, 30.f, 
         projection * worldToLight * glm::inverse(worldToView)
     };
-#if 0
-    SpotLight s = { 
-        glm::vec3( worldToView * glm::vec4((spotLightCount*sinf(t)) * cosf(t*i), 1.f + sinf(t * i), fabsf(spotLightCount*cosf(t)) * sinf(t*i), 1.0)), 45.f + 20.f * cos(t + i),
-        glm::vec3( worldToView * glm::vec4(sinf(t*10.0+i), -1.0, 0.0, 0.0)), 60.f + 20.f * cos(t + i),
-        glm::vec3(fabsf(cos(t+i*2.f)), 1.-fabsf(sinf(t+i)) , 0.5f + 0.5f-fabsf(cosf(t+i))), 1.0
-    };
-#endif
     SpotLight * spotLightBuffer = (SpotLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     *spotLightBuffer = s;
     glUnmapBuffer(GL_UNIFORM_BUFFER);
@@ -688,6 +773,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindTexture(GL_TEXTURE_2D, textureManager["gBufferNormals"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["depth"]->use();
     // Viewport 
     glViewport( screenWidth/4 * 2, 0, screenWidth/4, screenHeight/4  );
     // Bind texture
@@ -697,7 +783,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     // Viewport 
     glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
     // Bind texture
-    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
+    glBindTexture(GL_TEXTURE_2D, textureManager["shadow0"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blit"]->unuse();
@@ -758,6 +844,12 @@ void Game::loadAssets()
     blitHDRShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
     blitHDRShader->link();
 
+    Shader* blitDepth = new Shader("Depth blit");
+    blitDepth->attach(blitVertShader);
+    blitDepth->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitDepth.frag");
+    blitDepth->link();
+    
+
     //RENDERING SHADERS
     Shader* gbuffer = new Shader("G-buffer");
     gbuffer->attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
@@ -784,6 +876,12 @@ void Game::loadAssets()
     dlShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
     dlShader->link();
 
+    Shader* plShadowShader = new Shader("piint light shadow");
+    plShadowShader->attach(GL_VERTEX_SHADER, "assets/shaders/cubemap.vert");
+    plShadowShader->attach(GL_GEOMETRY_SHADER, "assets/shaders/cubemap.geom");
+    plShadowShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/cubemap.frag");
+    plShadowShader->link();
+    
     //POSTFX SHADERS
     Shader* blurShader = new Shader("Blur shader");
     blurShader->attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
@@ -802,6 +900,8 @@ void Game::loadAssets()
 
     
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "plShadow", plShadowShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "depth", blitDepth));
     shaderManager.getManaged().insert( pair<string, Shader*>( "shadow", shadowShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "pointLight", plShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "spotLight", slShader));
@@ -955,12 +1055,12 @@ void Game::loadAssets()
     glGenTextures(FX_TEXTURE_COUNT, fxTextures);
     for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
     {
-    glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, fxTextures[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
     // Attach first fx texture to framebuffer
@@ -1002,32 +1102,59 @@ void Game::loadAssets()
     glGenTextures(SPOT_LIGHT_COUNT, shadowTextures);
     for (int i = 0; i < SPOT_LIGHT_COUNT; ++i) 
     {
-    glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 #if 1        
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
 #endif
-    textureManager.getManaged().insert( pair<string, Tex>( "shadow"+to_string(i), {shadowTextures[i]}));
-}
-fboManager.getManaged().insert(pair<string, FBO>( "shadow", {shadowFbo}));
-// Create a render buffer since we don't need to read shadow color 
+        textureManager.getManaged().insert( pair<string, Tex>( "shadow"+to_string(i), {shadowTextures[i]}));
+    }
+    fboManager.getManaged().insert(pair<string, FBO>( "shadow", {shadowFbo}));
+
+    GLuint plShadowFBO;
+    glGenFramebuffers(1, &plShadowFBO);
+    GLuint plShadow;
+    glGenTextures(1, &plShadow);
+    const int SHADOW = 1024;
+    glBindTexture(GL_TEXTURE_CUBE_MAP, plShadow);
+    for (GLuint i = 0; i < 6; ++i )
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW, SHADOW, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+#if 0        
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
+#endif
+    textureManager.getManaged().insert(pair<string, Tex>( "plShadow", {plShadow}));
+    glBindFramebuffer(GL_FRAMEBUFFER, plShadowFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, plShadow, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    //  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    fboManager.getManaged().insert(pair<string, FBO>("plShadow", {plShadowFBO}));
+  // Create a render buffer since we don't need to read shadow color 
 // in a texture
-GLuint shadowRenderBuffer;
-glGenRenderbuffers(1, &shadowRenderBuffer);
-glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
-glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES);
+    GLuint shadowRenderBuffer;
+    glGenRenderbuffers(1, &shadowRenderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES);
 
 // Attach the first texture to the depth attachment
-glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
 
 // Attach the renderbuffer
-glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
-    
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
+
+Utils::checkGlError("LOAD ASSETS");
 //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
 }
 

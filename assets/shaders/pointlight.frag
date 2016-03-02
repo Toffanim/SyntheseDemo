@@ -8,6 +8,7 @@ in block
 uniform sampler2D ColorBuffer;
 uniform sampler2D NormalBuffer;
 uniform sampler2D DepthBuffer;
+uniform samplerCube Shadow;
 
 layout(location = 0, index = 0) out vec4 Color;
 
@@ -47,5 +48,13 @@ void main(void)
 	vec3 p = vec3(wP.xyz / wP.w);
 	vec3 v = normalize(-p);
 
+        vec3 dir = p - PointLight.Position;
+        float closestDepth = texture( Shadow, dir ).r;
+        closestDepth *= 100.f;
+        float currentDepth = length(dir);
+        float shadow = currentDepth - 0.005 > closestDepth ? 1.0 : 0.0;
+        
 	Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
+        //Color = shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
+        Color = vec4(vec3(closestDepth), 1.0);
 }

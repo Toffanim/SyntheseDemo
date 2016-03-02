@@ -8,7 +8,6 @@ in block
 uniform sampler2D ColorBuffer;
 uniform sampler2D NormalBuffer;
 uniform sampler2D DepthBuffer;
-uniform sampler2DShadow Shadow;
 
 layout(location = 0, index = 0) out vec4 Color;
 
@@ -16,19 +15,20 @@ uniform mat4 InverseProjection;
 
 uniform light
 {
-	vec3 Direction;
+	vec3 Position;
 	vec3 Color;
 	float Intensity;
-        mat4 WorldToLightScreen;
-} DirectionalLight;
+} PointLight;
 
-vec3 directionalLight(in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularColor, in float specularPower)
+vec3 pointLight( in vec3 p, in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularColor, in float specularPower)
 {
-	vec3 l = normalize(-DirectionalLight.Direction);
+	vec3 l = normalize(PointLight.Position - p);
 	float ndotl = max(dot(n, l), 0.0);
 	vec3 h = normalize(l+v);
 	float ndoth = max(dot(n, h), 0.0);
-	return DirectionalLight.Color * DirectionalLight.Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, specularPower));;
+	float d = distance(PointLight.Position, p);
+	float att = 1.f / (d*d);
+	return att * PointLight.Color * PointLight.Intensity * (diffuseColor * ndotl + specularColor * pow(ndoth, specularPower));
 }
 
 void main(void)
@@ -47,10 +47,5 @@ void main(void)
 	vec3 p = vec3(wP.xyz / wP.w);
 	vec3 v = normalize(-p);
 
-	vec4 wlP = DirectionalLight.WorldToLightScreen * vec4(p, 1.0);
-	vec3 lP = vec3(wlP / wlP.w) * 0.5 + 0.5;
-
-	float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -0.005, 1.0), 0.0);
-	Color = shadowDepth * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
-        //Color = vec4( vec3(shadowDepth), 1.0);
+	Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
 }

@@ -114,7 +114,7 @@ void main(void)
 		if (any(greaterThan(spotColor, vec3(0.001))))
 		{
 			shadowDepth = 0.0;
-			const int samples = 4;
+			const int samples = 16;
 			const float samplesf = 4.0;
 			for (int i=0;i<samples;i++)
 			{
