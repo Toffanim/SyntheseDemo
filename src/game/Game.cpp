@@ -88,7 +88,7 @@ int Game::init()
     //glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_DEPTH_TEST);    // enable Z-buffering
     //glEnable(GL_MULTISAMPLE);
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f);
@@ -339,10 +339,33 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Specular"), 1);
     //Render scene
     glBindVertexArray(vaoManager["cube"]);
+    glm::mat4 m = glm::mat4();
+    m = glm::translate(m, glm::vec3(0.f, 5.f, 0.f));
+    mv = worldToView * m;
+    mvp = projection * mv;
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
     glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+    m = glm::mat4();
+    m = glm::translate(m, glm::vec3(0.f, 5.f, -1.5f));
+    mv = worldToView * m;
+    mvp = projection * mv;
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+    glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+ 
     glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
     glBindVertexArray(vaoManager["plane"]);
+    m = glm::mat4();
+    m = glm::rotate( m, glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+    m = glm::scale( m, glm::vec3(0.1f, 0.1f, 0.1f));
+    mv = worldToView * m;
+    mvp = projection * mv;
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    mv = worldToView;
+    mvp = projection * mv;
     shaderManager["gbuffer"]->unuse();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindVertexArray(0);
@@ -635,7 +658,7 @@ glClearDepth(1.f);
     // Light space matrices
     glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
     glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 1.f, 0.f));
-    glm::mat4 objectToWorld;
+    glm::mat4 objectToWorld = glm::rotate(;
     glm::mat4 objectToLight = worldToLight * objectToWorld;
     glm::mat4 objectToLightScreen = projection * objectToLight;
     SpotLight s = { 
@@ -657,22 +680,40 @@ glClearDepth(1.f);
     Utils::checkGlError("poiintlight");
 
     // Draw skybox as last
-    //TODO(marc) : correct sun , this is not worling properly
     glm::vec4 sunNDC = mvp * ((-10000.f)*glm::vec4(-1.f, -1.f, 0.f, 0.f));
     sunNDC = glm::vec4( glm::vec3(sunNDC)/sunNDC.w, 1.0);
     sunNDC += 1.0;
     sunNDC *= 0.5;
-    std::cout << sunNDC.x <<"  "<< sunNDC.y << std::endl;
     view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-    skybox->display(view, projection, glm::vec3(sunNDC), textureManager["gBufferDepth"]);
+    skybox->display(view, projection, textureManager["gBufferDepth"]);
+#if 0
+    shaderManager["sun"]->use();
+    //glUniform1i(glGetUniformLocation(shaderManager["sun"]->getProgram(), "Depth"), 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
+    glUniform3fv(glGetUniformLocation(shaderManager["sun"]->getProgram(), "sun"), 1, &sunNDC[0]);
+    glBindVertexArray(vaoManager["quad"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+#endif
+    //Render sun with occludee in black for light shaft postFX
+    shaderManager["sun"]->use();
+    glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx4"], 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
+    glUniform3fv(glGetUniformLocation(shaderManager["sun"]->getProgram(), "sun"), 1, &sunNDC[0]);
+    glBindVertexArray(vaoManager["quad"]);
+    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["sun"]->unuse();
+
     Utils::checkGlError("Skybox");
     glDisable(GL_BLEND);
 
-
+#if 1
     glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-   
+    glClear(GL_COLOR_BUFFER_BIT); 
     glViewport(0,0, screenWidth, screenHeight);
     shaderManager["bright"]->use();
     glActiveTexture(GL_TEXTURE0);
@@ -712,6 +753,31 @@ glClearDepth(1.f);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     shaderManager["bloom"]->unuse();
     Utils::checkGlError("bloom");
+#endif
+    
+#if 1
+        shaderManager["lightShaft"]->use();
+        glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx2"], 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        //NOTE(marc) : only one texture, so next lines are not necessary
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureManager["fx4"]);
+        glUniform1i(glGetUniformLocation(shaderManager["lightShaft"]->getProgram(), "Texture"), 0);
+        glUniform2fv(glGetUniformLocation(shaderManager["lightShaft"]->getProgram(), "ScreenLightPos"), 1, &sunNDC[0]); 
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+        shaderManager["lightShaft"]->unuse();
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+        shaderManager["blit"]->use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureManager["fx1"]);
+        glBindVertexArray(vaoManager["quad"]);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+        shaderManager["blit"]->unuse();
+        glDisable(GL_BLEND);
+#endif
       
     //Draw final frame on screen
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -720,7 +786,16 @@ glClearDepth(1.f);
     glViewport(0,0, screenWidth, screenHeight);
     shaderManager["blitHDR"]->use();
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture( GL_TEXTURE_2D, textureManager["fx1"]);
+//TODO(marc) : change this to work automatically (blit texture into final texture)
+    if ( sunNDC.x >= 0.f && sunNDC.x <= 1.f
+         && sunNDC.y >= 0.f && sunNDC.y <= 1.f )
+    {
+        glBindTexture( GL_TEXTURE_2D, textureManager["fx2"]);
+    }
+    else
+    {
+        glBindTexture( GL_TEXTURE_2D, textureManager["fx2"]);
+    }
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blitHDR"]->unuse();
     Utils::checkGlError("blit");
@@ -745,7 +820,7 @@ glClearDepth(1.f);
     simpleShader.unuse();
 #endif 
 
-        
+#if 1        
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     shaderManager["blit"]->use();
     glActiveTexture(GL_TEXTURE0);
@@ -769,13 +844,16 @@ glClearDepth(1.f);
     glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["depth"]->unuse();
+    shaderManager["blit"]->use();
     // Viewport 
     glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
     // Bind texture
-    glBindTexture(GL_TEXTURE_2D, textureManager["shadow0"]);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx4"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blit"]->unuse();
+    #endif
 }
 
 void Game::loadShaders()
@@ -838,8 +916,13 @@ void Game::loadShaders()
     lightShaftShader->attach(blitVertShader);
     lightShaftShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/lightShaft.frag");
     lightShaftShader->link();
+    Shader* sunShader = new Shader("Sun shader");
+    sunShader->attach(blitVertShader);
+    sunShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/sun.frag");
+    sunShader->link();
     
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "sun", sunShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "lightShaft", lightShaftShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "plShadow", plShadowShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "depth", blitDepth));
@@ -947,12 +1030,20 @@ void Game::initGbuffer()
     FboManager& fboManager = Manager<FboManager>::instance();
     // Init frame buffers
     GLuint gbufferFbo;
-    GLuint gbufferTextures[3];
-    GLuint gbufferDrawBuffers[2];
-    glGenTextures(3, gbufferTextures);
+    GLuint gbufferTextures[4];
+    GLuint gbufferDrawBuffers[3];
+    glGenTextures(4, gbufferTextures);
 
     // Create color texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // Create color texture
+    glBindTexture(GL_TEXTURE_2D, gbufferTextures[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -979,10 +1070,12 @@ void Game::initGbuffer()
     glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
     gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
     gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
-    glDrawBuffers(2, gbufferDrawBuffers);
+    gbufferDrawBuffers[2] = GL_COLOR_ATTACHMENT2;
+    glDrawBuffers(3, gbufferDrawBuffers);
     // Attach textures to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , GL_TEXTURE_2D, gbufferTextures[3], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
 
     if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
@@ -993,6 +1086,7 @@ void Game::initGbuffer()
     textureManager.getManaged().insert( pair<string, Tex>( "gBufferColor", {gbufferTextures[0]}));
     textureManager.getManaged().insert( pair<string, Tex>( "gBufferNormals", {gbufferTextures[1]}));
     textureManager.getManaged().insert( pair<string, Tex>( "gBufferDepth", {gbufferTextures[2]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferOccludee", {gbufferTextures[3]}));
     fboManager.getManaged().insert( pair<string, FBO>( "gbuffer", {gbufferFbo}));
 }
 
@@ -1008,7 +1102,7 @@ void Game::initFX()
     fxDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
     glDrawBuffers(1, fxDrawBuffers);
     // Create Fx textures
-    const int FX_TEXTURE_COUNT = 4;
+    const int FX_TEXTURE_COUNT = 5;
     GLuint fxTextures[FX_TEXTURE_COUNT];
     glGenTextures(FX_TEXTURE_COUNT, fxTextures);
     for (int i = 0; i < FX_TEXTURE_COUNT; ++i)
@@ -1032,6 +1126,7 @@ void Game::initFX()
     textureManager.getManaged().insert( pair<string, Tex>( "fx1", {fxTextures[1]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx2", {fxTextures[2]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx3", {fxTextures[3]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "fx4", {fxTextures[4]}));
 }
 
 void Game::initShadows()

@@ -3,6 +3,7 @@
 #define POSITION	0
 #define NORMAL		1
 #define TEXCOORD	2
+#define OCCLUDEE        2
 #define COLOR	    0
 
 const float PI = 3.14159265359;
@@ -19,6 +20,7 @@ uniform float SpecularPower;
 
 layout(location = COLOR ) out vec4 Color;
 layout(location = NORMAL) out vec4 Normal;
+layout(location = OCCLUDEE) out vec4 Occludee;
 
 in block
 {
@@ -41,5 +43,6 @@ void main()
 	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb;
 	float specularColor = texture(Specular, In.Texcoord).r;
 	Color = vec4(diffuseColor, specularColor);
+	Occludee = vec4(vec3(0.f), 1.f);
 	Normal = vec4(n, SpecularPower);
 }

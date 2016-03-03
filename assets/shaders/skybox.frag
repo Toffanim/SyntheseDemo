@@ -5,9 +5,7 @@ out vec4 color;
 
 uniform samplerCube skybox;
 uniform sampler2D DepthBuffer;
-uniform vec3 sun;
 
-//vec3 sunPos = vec3( 
 
 void main()
 {
@@ -22,9 +20,6 @@ void main()
     float depth = texture(DepthBuffer, vec2(x, y)).r;
     if ( depth >= 0.999 )
     {
-        if ( distance( vec2(sun), vec2(x,y) ) <= 0.05 )
-             color = vec4( 2.0, 2.0, 2.0, 1.0);
-        else
              color = texture(skybox, TexCoords);    
     }
 }

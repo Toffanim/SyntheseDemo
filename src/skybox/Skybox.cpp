@@ -120,13 +120,13 @@ GLuint Skybox::loadCubemap(const vector<const GLchar*>& faces)
 }
 
 
-void Skybox::display( glm::mat4 view, glm::mat4 proj, glm::vec3 sunDir, GLuint depth )
+void Skybox::display( glm::mat4 view, glm::mat4 proj, GLuint depth )
 {
     //glDisable(GL_DEPTH_TEST);
         shader->use();             
         glUniformMatrix4fv(glGetUniformLocation(shader->getProgram(), "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(shader->getProgram(), "projection"), 1, GL_FALSE, glm::value_ptr(proj));
-        glUniform3f(glGetUniformLocation(shader->getProgram(), "sun"), sunDir.x, sunDir.y, sunDir.z);
+        //glUniform3f(glGetUniformLocation(shader->getProgram(), "sun"), sunDir.x, sunDir.y, sunDir.z);
         // skybox cube
         glBindVertexArray(VAO);
         glActiveTexture(GL_TEXTURE0);

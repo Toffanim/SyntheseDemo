@@ -1,6 +1,6 @@
 #version 410 core
 
-#define NUM_SAMPLES 4
+#define NUM_SAMPLES 512
 
 in block
 {
@@ -9,10 +9,10 @@ in block
 
 uniform sampler2D Texture;
 uniform vec2 ScreenLightPos;
-uniform float Density = 1.f;
-uniform float Weight = 1.f;
-uniform float Decay = 1.f;
-unfirom float Exposure = 1.f;
+uniform float Density = 5.0f;
+uniform float Weight = 10.0f;
+uniform float Decay = 0.9f;
+uniform float Exposure = 1.0f;
 
 layout(location = 0, index = 0) out vec4  Color;
 
@@ -23,24 +23,28 @@ void main(void)
   // Divide by number of samples and scale by control factor.  
   deltaTexCoord *= 1.0f / NUM_SAMPLES * Density;  
   // Store initial sample.  
-   vec2 color = texture(Texture, In.Texcoord);  
+   vec3 color = texture(Texture, In.Texcoord).rgb;  
   // Set up illumination decay factor.  
-   float illuminationDecay = 1.0f;  
+   float illuminationDecay = 1.0f;
+vec2 newCoord = In.Texcoord;  
   // Evaluate summation from Equation 3 NUM_SAMPLES iterations.  
    for (int i = 0; i < NUM_SAMPLES; i++)  
   {  
     // Step sample location along ray.  
-    In.Texcoord -= deltaTexCoord;  
+    newCoord -= deltaTexCoord;  
     // Retrieve sample at new location.  
-   vec3 sample = texture(Texture, In.Texcoord);  
+    vec3 sampl = texture(Texture, newCoord).rgb;  //sample is a protected keyword for openGL it seems
     // Apply sample attenuation scale/decay factors.  
-    sample *= illuminationDecay * Weight;  
+    sampl *= illuminationDecay * Weight;  
     // Accumulate combined color.  
-    color += sample;  
+    color += sampl;  
     // Update exponential decay factor.  
     illuminationDecay *= Decay;  
   }  
   // Output final color with a further scale control factor.  
-   return float4( color * Exposure, 1);  
-}
+   Color = vec4( color * Exposure, 1.f);
+   //Color = vec4( deltaTexCoord, 0.0, 1.0);  
+   //Color = vec4(In.Texcoord, 0.0, 1.0);
+   //Color = vec4(abs(In.Texcoord - ScreenLightPos.xy), 0.0, 1.0);
+   //Color = texture(Texture, In.Texcoord);
 }
