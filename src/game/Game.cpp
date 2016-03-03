@@ -46,17 +46,6 @@ int Game::init()
         return(-1);
     }
 
-    //SDL_SetRelativeMouseMode(SDL_TRUE);
-    // Set openGL versions    
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-    
-    // Set Double Buffer rendering    
-    //SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    //SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GL_TRUE);
     glfwWindowHint(GLFW_DECORATED, GL_TRUE);
@@ -85,15 +74,6 @@ int Game::init()
         return(-1);
     }
 
-    // Create OpenGL context
-    //openGLcontext = SDL_GL_CreateContext(window);
-    //if(openGLcontext == 0)
-    //{
-    //  std::cout << SDL_GetError() << std::endl;
-    //  SDL_DestroyWindow(window);
-    //  SDL_Quit();
-    //  return(-1);
-    //
     glfwMakeContextCurrent(window);
     
     glewExperimental = GL_TRUE;
@@ -107,7 +87,7 @@ int Game::init()
 
     //glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_DEPTH_TEST);    // enable Z-buffering
-    glEnable(GL_MULTISAMPLE);
+    //glEnable(GL_MULTISAMPLE);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -315,11 +295,11 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     FboManager& fboManager = Manager<FboManager>::instance();
 
     glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
-        (float)screenWidth/(float)screenHeight,
-        0.1f, 100.0f);
+                                            (float)screenWidth/(float)screenHeight,
+                                            0.1f, 100.0f);
     glm::mat4 view = glm::mat4();
 
-    int instanceCount = 4;
+    int instanceCount = 1;
     int pointLightCount = 1;
     int directionalLightCount = 1;
     int spotLightCount = 1;
@@ -364,7 +344,9 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindVertexArray(vaoManager["plane"]);
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["gbuffer"]->unuse();
-
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindVertexArray(0);
+    
     // Shadow passes
     struct SpotLight
     {
@@ -408,36 +390,36 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
     for (int i = 0; i < spotLightCount; ++i)
     {
-    // Setup light data                
-    glm::vec3 lp(5.f, 5.f, i*2);
-    glm::vec3 ld(-1.f, -1.f, 0.f);
-    float angle = 45.f;
-    float penumbraAngle = 50.f;
-    glm::vec3 color(1.f, 1.f, 1.f); 
+        // Setup light data                
+        glm::vec3 lp(5.f, 5.f, i*2);
+        glm::vec3 ld(-1.f, -1.f, 0.f);
+        float angle = 45.f;
+        float penumbraAngle = 50.f;
+        glm::vec3 color(1.f, 1.f, 1.f); 
           
-    // Light space matrices
-    glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
-    glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 1.f, 0.f));
-    glm::mat4 objectToWorld;
-    glm::mat4 objectToLight = worldToLight * objectToWorld;
-    glm::mat4 objectToLightScreen = projection * objectToLight;
-    //std::cout << glm::to_string(worldToLight) << std::endl;
-    // Attach shadow texture for current light
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
-    // Clear only the depth buffer
-    glClear(GL_DEPTH_BUFFER_BIT);
+        // Light space matrices
+        glm::mat4 projection = glm::perspective(glm::radians(penumbraAngle*2.f), 1.f, 1.f, 100.f); 
+        glm::mat4 worldToLight = glm::lookAt(lp, lp + ld, glm::vec3(0.f, 1.f, 0.f));
+        glm::mat4 objectToWorld;
+        glm::mat4 objectToLight = worldToLight * objectToWorld;
+        glm::mat4 objectToLightScreen = projection * objectToLight;
+        //std::cout << glm::to_string(worldToLight) << std::endl;
+        // Attach shadow texture for current light
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
+        // Clear only the depth buffer
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-    // Update scene uniforms
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
+        // Update scene uniforms
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
 
-    // Render the scene
-    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
-    glBindVertexArray(vaoManager["cube"]);
-    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
-    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
-    glBindVertexArray(vaoManager["plane"]);
-    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+        // Render the scene
+        glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
+        glBindVertexArray(vaoManager["cube"]);
+        glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+        glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
+        glBindVertexArray(vaoManager["plane"]);
+        glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     }        
     glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -459,29 +441,29 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     for (int i = 0; i < directionalLightCount; ++i)
     {
         glm::vec3 lp = glm::vec3( 4.0, 4.0, 0.0);
-    // Light space matrices
+        // Light space matrices
         glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
         glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.f));
         glm::mat4 objectToWorld;
         glm::mat4 objectToLight = worldToLight * objectToWorld;
         glm::mat4 objectToLightScreen = lightProjection * objectToLight;
 
-    // Attach shadow texture for current light
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
-    // Clear only the depth buffer
-    glClear(GL_DEPTH_BUFFER_BIT);
+        // Attach shadow texture for current light
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
+        // Clear only the depth buffer
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-    // Update scene uniforms
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
+        // Update scene uniforms
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
 
-    // Render the scene
-    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
-    glBindVertexArray(vaoManager["cube"]);
-    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
-    glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
-    glBindVertexArray(vaoManager["plane"]);
-    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+        // Render the scene
+        glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),t);
+        glBindVertexArray(vaoManager["cube"]);
+        glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+        glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
+        glBindVertexArray(vaoManager["plane"]);
+        glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     }        
     glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -492,18 +474,19 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
 #if 1
     const int uboSize = 512;
-    const int SPOT_LIGHT_COUNT = 1;
+    const int LIGHT_COUNT = 1;
     // Bind the shadow FBO
     glBindFramebuffer(GL_FRAMEBUFFER, fboManager["plShadow"]);
     // Use shadow program
     shaderManager["plShadow"]->use();
     glViewport(0, 0, 1024, 1024);
+    glEnable(GL_DEPTH_TEST);
 
     for (int i = 0; i < pointLightCount; ++i)
     {
         
         glm::vec3 lp = glm::vec3( 4.0, 4.0, 0.0);
-    // Light space matrices
+        // Light space matrices
         glm::mat4 lightProjection = glm::perspective( glm::radians(90.f), 1.f, 1.f, 100.f);
 
         std::vector<glm::mat4> worldToLight;
@@ -516,25 +499,25 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
                                    
         glm::mat4 objectToWorld;
 
-    // Attach shadow texture for current light
+        // Attach shadow texture for current light
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow"], 0);
-    // Clear only the depth buffer
-    glClear(GL_DEPTH_BUFFER_BIT);
-    // Update scene uniforms
-    for(GLuint i = 0 ; i < 6 ; ++i)
-        glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), ("shadowMatrices[" + to_string(i) + "]").c_str()), 1 , GL_FALSE, glm::value_ptr(worldToLight[i]));
-    glUniform3fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "lightPos"), 1, &lp[0]);
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "model"), 1, GL_FALSE, glm::value_ptr(objectToWorld));
-    // Render the scene
-    glBindVertexArray(vaoManager["cube"]);
-    glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
-    glBindVertexArray(vaoManager["plane"]);
-    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+        // Clear only the depth buffer
+        glClear(GL_DEPTH_BUFFER_BIT);
+        // Update scene uniforms
+        for(GLuint i = 0 ; i < 6 ; ++i)
+            glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), ("shadowMatrices[" + to_string(i) + "]").c_str()), 1 , GL_FALSE, glm::value_ptr(worldToLight[i]));
+        glUniform3fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "lightPos"), 1, &lp[0]);
+        glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "model"), 1, GL_FALSE, glm::value_ptr(objectToWorld));
+        // Render the scene
+        glBindVertexArray(vaoManager["cube"]);
+        glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
+        glBindVertexArray(vaoManager["plane"]);
+        glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
       
     }        
-    //glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindVertexArray(0);
 #endif
 
     
@@ -561,7 +544,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 #if 1
     // Render point lights
     shaderManager["pointLight"]->use();
-    glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(glm::inverse(mvp)));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "ColorBuffer"), 0);
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "NormalBuffer"), 1);
     glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "DepthBuffer"), 2);
@@ -573,7 +556,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureManager["plShadow"]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
     PointLight p = { 
-    glm::vec3( glm::vec4(4.f,4.f,0.f, 1.0)),
+    glm::vec3( worldToView * glm::vec4(4.f,4.f,0.f, 1.0)),
         0,
         glm::vec3(1.0,1.0,1.0),
         3.0
@@ -584,7 +567,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["pointLight"]->getProgram(), "light"), fboManager["ubo"]);
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 }
-    shaderManager["pointLight"]->unuse();        
+    shaderManager["pointLight"]->unuse();
 #endif
     
 #if 0
@@ -789,115 +772,62 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     shaderManager["blit"]->unuse();
 }
 
-//Load models into the singleton modelmanager
-void Game::loadAssets()
+void Game::loadShaders()
 {
-
-    std::cout << std::endl << "---- LOAD ASSETS AND CREATE FBOs ---" << std::endl << std::endl;
-    //Manager<Model*>& modelManager = Manager<Model*>::getInstance();
     ShaderManager& shaderManager = Manager<ShaderManager>::instance();
-    TextureManager& textureManager = Manager<TextureManager>::instance();
-    VaoManager& vaoManager = Manager<VaoManager>::instance();
-    FboManager& fboManager = Manager<FboManager>::instance();
-    // Load images and upload textures
-    GLuint textures[2];
-    glGenTextures(2, textures);
-    int x;
-    int y;
-    int comp;
-
-    unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
-
-    unsigned char * spec = stbi_load("assets/textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
-
-    textureManager.getManaged().insert( pair<string, Tex>( "brick_diff", {textures[0]}));
-    textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
-
     //DEBUG SHADERS
     Shader* blitShader = new Shader("Blit shader");
     blitShader->attach(GL_VERTEX_SHADER, "assets/shaders/blit.vert");
     blitShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blit.frag");
     blitShader->link();
-
     GLuint blitVertShader = (*blitShader)[0];
-
     Shader* blitHDRShader = new Shader("HDR blit shader");
     blitHDRShader->attach(blitVertShader);
     blitHDRShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitHDR.frag");
     blitHDRShader->link();
-
     Shader* blitDepth = new Shader("Depth blit");
     blitDepth->attach(blitVertShader);
     blitDepth->attach(GL_FRAGMENT_SHADER, "assets/shaders/blitDepth.frag");
     blitDepth->link();
-    
-
     //RENDERING SHADERS
     Shader* gbuffer = new Shader("G-buffer");
     gbuffer->attach(GL_VERTEX_SHADER, "assets/shaders/gbuffer.vert");
     gbuffer->attach(GL_FRAGMENT_SHADER, "assets/shaders/gbuffer.frag");
     gbuffer->link();
-
     Shader* shadowShader = new Shader( "Shadows" );
     shadowShader->attach( (*gbuffer)[0] );
     shadowShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/shadow.frag");
     shadowShader->link();
-    
     Shader* plShader = new Shader("Point light");
     plShader->attach(blitVertShader);
     plShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/pointlight.frag");
     plShader->link();
-
     Shader* slShader = new Shader("Spot light");
     slShader->attach(blitVertShader);
     slShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/spotlight.frag");
     slShader->link();
-
     Shader* dlShader = new Shader("Directional light");
     dlShader->attach(blitVertShader);
     dlShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/directionallight.frag");
     dlShader->link();
-
     Shader* plShadowShader = new Shader("piint light shadow");
     plShadowShader->attach(GL_VERTEX_SHADER, "assets/shaders/cubemap.vert");
     plShadowShader->attach(GL_GEOMETRY_SHADER, "assets/shaders/cubemap.geom");
     plShadowShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/cubemap.frag");
     plShadowShader->link();
-    
     //POSTFX SHADERS
     Shader* blurShader = new Shader("Blur shader");
     blurShader->attach(GL_VERTEX_SHADER, "assets/shaders/blur.vert");
     blurShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/blur.frag");
     blurShader->link();
-
     Shader* brightShader = new Shader("Bright shader");
     brightShader->attach(blitVertShader);
     brightShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/extractBright.frag");
     brightShader->link();
-
     Shader* bloomShader = new Shader("Bloom shader");
     bloomShader->attach(blitVertShader);
     bloomShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
     bloomShader->link();
-
     
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "plShadow", plShadowShader));
@@ -911,7 +841,14 @@ void Game::loadAssets()
     shaderManager.getManaged().insert( pair<string, Shader*>( "gbuffer", gbuffer));
     shaderManager.getManaged().insert( pair<string, Shader*>( "blit", blitShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "blitHDR", blitHDRShader));
-    
+
+    bloomShader->unuse();
+}
+
+
+void Game::loadGeometry()
+{
+    VaoManager& vaoManager = Manager<VaoManager>::instance();
     // Load geometry
     int cube_triangleCount = 12;
     int cube_triangleList[] = {0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 19, 17, 20, 21, 22, 23, 24, 25, 26, };
@@ -926,15 +863,12 @@ void Game::loadAssets()
     int   quad_triangleCount = 2;
     int   quad_triangleList[] = {0, 1, 2, 2, 1, 3}; 
     float quad_vertices[] =  {-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0};
-
     // Vertex Array Object
     GLuint vao[3];
     glGenVertexArrays(3, vao);
-
     // Vertex Buffer Objects
     GLuint vbo[10];
     glGenBuffers(10, vbo);
-
     // Cube
     glBindVertexArray(vao[0]);
     // Bind indices and upload data
@@ -955,7 +889,6 @@ void Game::loadAssets()
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube_uvs), cube_uvs, GL_STATIC_DRAW);
-
     // Plane
     glBindVertexArray(vao[1]);
     // Bind indices and upload data
@@ -976,7 +909,6 @@ void Game::loadAssets()
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT)*2, (void*)0);
     glBufferData(GL_ARRAY_BUFFER, sizeof(plane_uvs), plane_uvs, GL_STATIC_DRAW);
-
     // Quad
     glBindVertexArray(vao[2]);
     // Bind indices and upload data
@@ -996,7 +928,12 @@ void Game::loadAssets()
     vaoManager.getManaged().insert( pair<string, VAO>("cube", {vao[0]}));
     vaoManager.getManaged().insert( pair<string, VAO>("plane", {vao[1]}));
     vaoManager.getManaged().insert( pair<string, VAO>("quad", {vao[2]}));    
+}
 
+void Game::initGbuffer()
+{
+    TextureManager& textureManager = Manager<TextureManager>::instance();    
+    FboManager& fboManager = Manager<FboManager>::instance();
     // Init frame buffers
     GLuint gbufferFbo;
     GLuint gbufferTextures[3];
@@ -1011,7 +948,6 @@ void Game::loadAssets()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     // Create normal texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[1]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, screenWidth, screenHeight, 0, GL_RGBA, GL_FLOAT, 0);
@@ -1020,7 +956,6 @@ void Game::loadAssets()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     // Create depth texture
     glBindTexture(GL_TEXTURE_2D, gbufferTextures[2]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, screenWidth, screenHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
@@ -1028,21 +963,33 @@ void Game::loadAssets()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     // Create Framebuffer Object
     glGenFramebuffers(1, &gbufferFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, gbufferFbo);
     gbufferDrawBuffers[0] = GL_COLOR_ATTACHMENT0;
     gbufferDrawBuffers[1] = GL_COLOR_ATTACHMENT1;
     glDrawBuffers(2, gbufferDrawBuffers);
-
     // Attach textures to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, gbufferTextures[0], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_TEXTURE_2D, gbufferTextures[1], 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gbufferTextures[2], 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    
+    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
+        std::cout << "Error Gbuffer fbo" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0 );
+
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferColor", {gbufferTextures[0]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferNormals", {gbufferTextures[1]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "gBufferDepth", {gbufferTextures[2]}));
+    fboManager.getManaged().insert( pair<string, FBO>( "gbuffer", {gbufferFbo}));
+}
+
+void Game::initFX()
+{
+    TextureManager& textureManager = Manager<TextureManager>::instance();    
+    FboManager& fboManager = Manager<FboManager>::instance();
+
     GLuint fxFbo;
     GLuint fxDrawBuffers[1];
     glGenFramebuffers(1, &fxFbo);
@@ -1062,168 +1009,221 @@ void Game::loadAssets()
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
-
     // Attach first fx texture to framebuffer
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, fxTextures[0], 0);
+    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
+        std::cout << "Error FX fbo" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-    fboManager.getManaged().insert( pair<string, FBO>( "gbuffer", {gbufferFbo}));
     fboManager.getManaged().insert( pair<string, FBO>( "fx", {fxFbo}));
-    textureManager.getManaged().insert( pair<string, Tex>( "gBufferColor", {gbufferTextures[0]}));
-    textureManager.getManaged().insert( pair<string, Tex>( "gBufferNormals", {gbufferTextures[1]}));
-    textureManager.getManaged().insert( pair<string, Tex>( "gBufferDepth", {gbufferTextures[2]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx0", {fxTextures[0]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx1", {fxTextures[1]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx2", {fxTextures[2]}));
     textureManager.getManaged().insert( pair<string, Tex>( "fx3", {fxTextures[3]}));
+}
 
-    //create UBO
-    // Update and bind uniform buffer object
-    GLuint ubo[1];
-    glGenBuffers(1, ubo);
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-    // Ignore ubo size, allocate it sufficiently big for all light data structures
-    GLint uboSize = 512;
+void Game::initShadows()
+{
+    TextureManager& textureManager = Manager<TextureManager>::instance();    
+    FboManager& fboManager = Manager<FboManager>::instance();
 
-    glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
-
-
+    const int TEX_SIZE = 1024;
+    const int LIGHT_COUNT = 2;
     // Create shadow FBO
     GLuint shadowFbo;
     glGenFramebuffers(1, &shadowFbo);
     glBindFramebuffer(GL_FRAMEBUFFER, shadowFbo);
-    
     // Create shadow textures
-    const int SPOT_LIGHT_SHADOW_RES = 1024;
-    const int SPOT_LIGHT_COUNT = 1;
-    GLuint shadowTextures[SPOT_LIGHT_COUNT];
-    glGenTextures(SPOT_LIGHT_COUNT, shadowTextures);
-    for (int i = 0; i < SPOT_LIGHT_COUNT; ++i) 
+    GLuint shadowTextures[LIGHT_COUNT];
+    glGenTextures(LIGHT_COUNT, shadowTextures);
+    for (int i = 0; i < LIGHT_COUNT; ++i) 
     {
         glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-#if 1        
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
-#endif
         textureManager.getManaged().insert( pair<string, Tex>( "shadow"+to_string(i), {shadowTextures[i]}));
     }
     fboManager.getManaged().insert(pair<string, FBO>( "shadow", {shadowFbo}));
+    // Create a render buffer since we don't need to read shadow color 
+    // in a texture
+    GLuint shadowRenderBuffer;
+    glGenRenderbuffers(1, &shadowRenderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, TEX_SIZE, TEX_SIZE);
+    // Attach the first texture to the depth attachment
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
+    // Attach the renderbuffer
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
+    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
+        std::cout << "Error shadow fbo" << std::endl;
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
+    //Omnidirectional Shadow
     GLuint plShadowFBO;
     glGenFramebuffers(1, &plShadowFBO);
-    GLuint plShadow;
-    glGenTextures(1, &plShadow);
-    const int SHADOW = 1024;
-    glBindTexture(GL_TEXTURE_CUBE_MAP, plShadow);
+    GLuint plShadowTex;
+    glGenTextures(1, &plShadowTex);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, plShadowTex);
     for (GLuint i = 0; i < 6; ++i )
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW, SHADOW, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-#if 0        
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE,  GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC,  GL_LEQUAL);
-#endif
-    textureManager.getManaged().insert(pair<string, Tex>( "plShadow", {plShadow}));
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0); 
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0); 
+    textureManager.getManaged().insert(pair<string, Tex>( "plShadow", {plShadowTex}));
     glBindFramebuffer(GL_FRAMEBUFFER, plShadowFBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, plShadow, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, plShadowTex, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
-    //  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
+        std::cout << "Error shadow fbo" << std::endl;
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     fboManager.getManaged().insert(pair<string, FBO>("plShadow", {plShadowFBO}));
-  // Create a render buffer since we don't need to read shadow color 
-// in a texture
-    GLuint shadowRenderBuffer;
-    glGenRenderbuffers(1, &shadowRenderBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, SPOT_LIGHT_SHADOW_RES, SPOT_LIGHT_SHADOW_RES);
 
-// Attach the first texture to the depth attachment
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
 
-// Attach the renderbuffer
-    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
-
-Utils::checkGlError("LOAD ASSETS");
-//manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
 }
 
-//Main rendering loop
-int Game::mainLoop()
-{
-    /*
-      Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
-      .     */
-    Player* p = new Player();
-    
-    glfwSetKeyCallback( window, key_callback);
-    glfwSetCursorPosCallback(window, cursor_position_callback);
-    glfwSetMouseButtonCallback(window, mouse_button_callback);
+//Load models into the singleton modelmanager
+    void Game::loadAssets()
+                         {
 
-    loadAssets();
-    //create skybox
-    vector<const GLchar*> faces;
-    faces.push_back("assets/skyboxes/Test/xpos.png");
-    faces.push_back("assets/skyboxes/Test/xneg.png");
-    faces.push_back("assets/skyboxes/Test/ypos.png");
-    faces.push_back("assets/skyboxes/Test/yneg.png");
-    faces.push_back("assets/skyboxes/Test/zpos.png");
-    faces.push_back("assets/skyboxes/Test/zneg.png");
-    Skybox* skybox = new Skybox(faces); 
-    Utils::checkGlError("skybox error");
+                             std::cout << std::endl << "---- LOAD ASSETS AND CREATE FBOs ---" << std::endl << std::endl;
+                             //Manager<Model*>& modelManager = Manager<Model*>::getInstance();
+                             TextureManager& textureManager = Manager<TextureManager>::instance();    
+                             FboManager& fboManager = Manager<FboManager>::instance();
+
+                             loadShaders();
+                             loadGeometry();
+                             initGbuffer();
+                             initFX();
+
+                             // Load images and upload textures
+                             GLuint textures[2];
+                             glGenTextures(2, textures);
+                             int x;
+                             int y;
+                             int comp;
+
+                             unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
+                             glActiveTexture(GL_TEXTURE0);
+                             glBindTexture(GL_TEXTURE_2D, textures[0]);
+                             glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                             glGenerateMipmap(GL_TEXTURE_2D);
+                             fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+                             glBindTexture(GL_TEXTURE_2D, 0);
+
+                             unsigned char * spec = stbi_load("assets/textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
+                             glActiveTexture(GL_TEXTURE1);
+                             glBindTexture(GL_TEXTURE_2D, textures[1]);
+                             glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                             glGenerateMipmap(GL_TEXTURE_2D);
+                             fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
+                             glBindTexture(GL_TEXTURE_2D, 0);
+
+                             textureManager.getManaged().insert( pair<string, Tex>( "brick_diff", {textures[0]}));
+                             textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
+
+                             //create UBO
+                             // Update and bind uniform buffer object
+                             GLuint ubo[1];
+                             glGenBuffers(1, ubo);
+                             glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+                             // Ignore ubo size, allocate it sufficiently big for all light data structures
+                             GLint uboSize = 512;
+                             glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
+                             glBindBuffer(GL_UNIFORM_BUFFER, 0);
+                             fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
+
+                             Utils::checkGlError("LOAD ASSETS");
+                             //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
+                         }
+
+//Main rendering loop
+                         int Game::mainLoop()
+                         {
+                             /*
+                               Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
+                               .     */
+                             Player* p = new Player();
+    
+                             glfwSetKeyCallback( window, key_callback);
+                             glfwSetCursorPosCallback(window, cursor_position_callback);
+                             glfwSetMouseButtonCallback(window, mouse_button_callback);
+
+                             loadAssets();
+                             //create skybox
+                             vector<const GLchar*> faces;
+                             faces.push_back("assets/skyboxes/Test/xpos.png");
+                             faces.push_back("assets/skyboxes/Test/xneg.png");
+                             faces.push_back("assets/skyboxes/Test/ypos.png");
+                             faces.push_back("assets/skyboxes/Test/yneg.png");
+                             faces.push_back("assets/skyboxes/Test/zpos.png");
+                             faces.push_back("assets/skyboxes/Test/zneg.png");
+                             Skybox* skybox = new Skybox(faces); 
+                             Utils::checkGlError("skybox error");
 
 #if 1
 
 
-    //Make hair
-    std::vector<Hair> vh;
-    for(int i = 0; i < 300; ++i)
-    {
-        Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
-        h.addForce( glm::vec3(0.01, 0.0, 0.0) );
-        vh.push_back(h);
-    }
-    glLineWidth(0.2f);
+                             //Make hair
+                             std::vector<Hair> vh;
+                             for(int i = 0; i < 300; ++i)
+                             {
+                                 Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
+                                 h.addForce( glm::vec3(0.01, 0.0, 0.0) );
+                                 vh.push_back(h);
+                             }
+                             glLineWidth(0.2f);
 
-    Times t;
-    while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
-    {
-        //ImGui_ImplGlfwGL3_NewFrame();
-        t.globalTime = glfwGetTime();
-        t.elapsedTime = t.globalTime - t.startTime;
-        t.deltaTime = t.globalTime - t.previousTime;
-        t.previousTime = t.globalTime;
-        scene1(p, skybox, t);
+                             Times t;
+                             while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
+                             {
+                                 //ImGui_ImplGlfwGL3_NewFrame();
+                                 t.globalTime = glfwGetTime();
+                                 t.elapsedTime = t.globalTime - t.startTime;
+                                 t.deltaTime = t.globalTime - t.previousTime;
+                                 t.previousTime = t.globalTime;
+                                 scene1(p, skybox, t);
 #if 0
-        ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
-        ImGui::Begin("aogl");
-        ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
-        ImGui::DragInt("Directional Lights", &directionalLightCount, .1f, 0, 100);
-        ImGui::DragInt("Spot Lights", &spotLightCount, .1f, 0, 100);
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        ImGui::End();
+                                 ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
+                                 ImGui::Begin("aogl");
+                                 ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
+                                 ImGui::DragInt("Directional Lights", &directionalLightCount, .1f, 0, 100);
+                                 ImGui::DragInt("Spot Lights", &spotLightCount, .1f, 0, 100);
+                                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+                                 ImGui::End();
 
-        ImGui::Render();
+                                 ImGui::Render();
 #endif
-        Utils::checkGlError("end frame");
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-    //NOTE(marc) : We should properly clean the app, but since this will be the last
-    //thing the program will do, it will clean them for us
+                                 Utils::checkGlError("end frame");
+                                 glfwSwapBuffers(window);
+                                 glfwPollEvents();
+                             }
+                             //NOTE(marc) : We should properly clean the app, but since this will be the last
+                             //thing the program will do, it will clean them for us
 #endif
-    // Close OpenGL window and terminate GLFW
-    ImGui_ImplGlfwGL3_Shutdown();
-    glfwTerminate();
-    return(0);
-}
+                             // Close OpenGL window and terminate GLFW
+                             ImGui_ImplGlfwGL3_Shutdown();
+                             glfwTerminate();
+                             return(0);
+                         }

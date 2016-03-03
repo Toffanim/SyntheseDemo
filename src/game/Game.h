@@ -73,6 +73,11 @@ private :
     int screenHeight;
    
     void startupGLDiagnostics();
+    void loadGeometry();
+    void initGbuffer();
+    void initFX();
+    void initShadows();
+    void loadShaders();
 };
 
 #endif

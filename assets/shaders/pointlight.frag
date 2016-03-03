@@ -56,5 +56,5 @@ void main(void)
         
 	Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
         //Color = shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
-        Color = vec4(vec3(closestDepth), 1.0);
+        Color = vec4(vec3(closestDepth/100.f), 1.0);
 }
