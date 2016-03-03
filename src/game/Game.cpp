@@ -449,6 +449,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         glm::mat4 objectToLightScreen = lightProjection * objectToLight;
 
         // Attach shadow texture for current light
+
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow"+to_string(i)], 0);
         // Clear only the depth buffer
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -464,8 +465,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         glUniform1f(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "Time"),0);
         glBindVertexArray(vaoManager["plane"]);
         glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-    }        
-    glUnmapBuffer(GL_UNIFORM_BUFFER);
+  }        
+  glUnmapBuffer(GL_UNIFORM_BUFFER);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
@@ -481,11 +482,12 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     shaderManager["plShadow"]->use();
     glViewport(0, 0, 1024, 1024);
     glEnable(GL_DEPTH_TEST);
+    //glClearDepth(0.5f);
 
     for (int i = 0; i < pointLightCount; ++i)
     {
         
-        glm::vec3 lp = glm::vec3( 4.0, 4.0, 0.0);
+        glm::vec3 lp = glm::vec3( worldToView * glm::vec4( 4.0, 4.0, 0.0, 1.0) );
         // Light space matrices
         glm::mat4 lightProjection = glm::perspective( glm::radians(90.f), 1.f, 1.f, 100.f);
 
@@ -497,7 +499,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,0.0,1.0), glm::vec3(0.0,-1.0,0.0)));
         worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0,0.0,-1.0), glm::vec3(0.0,-1.0,0.0)));
                                    
-        glm::mat4 objectToWorld;
+        glm::mat4 objectToWorld = worldToView;
 
         // Attach shadow texture for current light
         // glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow"], 0);
@@ -514,10 +516,13 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         glBindVertexArray(vaoManager["plane"]);
         glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
       
-    }        
+    }
+    //glClear(GL_DEPTH_BUFFER_BIT);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindVertexArray(0);
+
+glClearDepth(1.f);
 #endif
 
     
@@ -1096,134 +1101,135 @@ void Game::initShadows()
 }
 
 //Load models into the singleton modelmanager
-    void Game::loadAssets()
-                         {
+void Game::loadAssets()
+{
 
-                             std::cout << std::endl << "---- LOAD ASSETS AND CREATE FBOs ---" << std::endl << std::endl;
-                             //Manager<Model*>& modelManager = Manager<Model*>::getInstance();
-                             TextureManager& textureManager = Manager<TextureManager>::instance();    
-                             FboManager& fboManager = Manager<FboManager>::instance();
+    std::cout << std::endl << "---- LOAD ASSETS AND CREATE FBOs ---" << std::endl << std::endl;
+    //Manager<Model*>& modelManager = Manager<Model*>::getInstance();
+    TextureManager& textureManager = Manager<TextureManager>::instance();    
+    FboManager& fboManager = Manager<FboManager>::instance();
 
-                             loadShaders();
-                             loadGeometry();
-                             initGbuffer();
-                             initFX();
+    loadShaders();
+    loadGeometry();
+    initGbuffer();
+    initFX();
+    initShadows();
 
-                             // Load images and upload textures
-                             GLuint textures[2];
-                             glGenTextures(2, textures);
-                             int x;
-                             int y;
-                             int comp;
+    // Load images and upload textures
+    GLuint textures[2];
+    glGenTextures(2, textures);
+    int x;
+    int y;
+    int comp;
 
-                             unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
-                             glActiveTexture(GL_TEXTURE0);
-                             glBindTexture(GL_TEXTURE_2D, textures[0]);
-                             glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                             glGenerateMipmap(GL_TEXTURE_2D);
-                             fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
-                             glBindTexture(GL_TEXTURE_2D, 0);
+    unsigned char * diffuse = stbi_load("assets/textures/spnza_bricks_a_diff.tga", &x, &y, &comp, 3);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-                             unsigned char * spec = stbi_load("assets/textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
-                             glActiveTexture(GL_TEXTURE1);
-                             glBindTexture(GL_TEXTURE_2D, textures[1]);
-                             glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                             glGenerateMipmap(GL_TEXTURE_2D);
-                             fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
-                             glBindTexture(GL_TEXTURE_2D, 0);
+    unsigned char * spec = stbi_load("assets/textures/spnza_bricks_a_spec.tga", &x, &y, &comp, 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, x, y, 0, GL_RED, GL_UNSIGNED_BYTE, spec);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    fprintf(stderr, "Spec %dx%d:%d\n", x, y, comp);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-                             textureManager.getManaged().insert( pair<string, Tex>( "brick_diff", {textures[0]}));
-                             textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "brick_diff", {textures[0]}));
+    textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
 
-                             //create UBO
-                             // Update and bind uniform buffer object
-                             GLuint ubo[1];
-                             glGenBuffers(1, ubo);
-                             glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
-                             // Ignore ubo size, allocate it sufficiently big for all light data structures
-                             GLint uboSize = 512;
-                             glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
-                             glBindBuffer(GL_UNIFORM_BUFFER, 0);
-                             fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
+    //create UBO
+    // Update and bind uniform buffer object
+    GLuint ubo[1];
+    glGenBuffers(1, ubo);
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo[0]);
+    // Ignore ubo size, allocate it sufficiently big for all light data structures
+    GLint uboSize = 512;
+    glBufferData(GL_UNIFORM_BUFFER, uboSize, 0, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    fboManager.getManaged().insert( pair<string, FBO>("ubo", {ubo[0]}));
 
-                             Utils::checkGlError("LOAD ASSETS");
-                             //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
-                         }
+    Utils::checkGlError("LOAD ASSETS");
+    //manager.getModels().insert( pair<string, Model*>( "scalp", new Model( "../Assets/Models/Hair/scalp_mesh.obj" )));
+}
 
 //Main rendering loop
-                         int Game::mainLoop()
-                         {
-                             /*
-                               Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
-                               .     */
-                             Player* p = new Player();
+int Game::mainLoop()
+{
+    /*
+      Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
+      .     */
+    Player* p = new Player();
     
-                             glfwSetKeyCallback( window, key_callback);
-                             glfwSetCursorPosCallback(window, cursor_position_callback);
-                             glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetKeyCallback( window, key_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-                             loadAssets();
-                             //create skybox
-                             vector<const GLchar*> faces;
-                             faces.push_back("assets/skyboxes/Test/xpos.png");
-                             faces.push_back("assets/skyboxes/Test/xneg.png");
-                             faces.push_back("assets/skyboxes/Test/ypos.png");
-                             faces.push_back("assets/skyboxes/Test/yneg.png");
-                             faces.push_back("assets/skyboxes/Test/zpos.png");
-                             faces.push_back("assets/skyboxes/Test/zneg.png");
-                             Skybox* skybox = new Skybox(faces); 
-                             Utils::checkGlError("skybox error");
+    loadAssets();
+    //create skybox
+    vector<const GLchar*> faces;
+    faces.push_back("assets/skyboxes/Test/xpos.png");
+    faces.push_back("assets/skyboxes/Test/xneg.png");
+    faces.push_back("assets/skyboxes/Test/ypos.png");
+    faces.push_back("assets/skyboxes/Test/yneg.png");
+    faces.push_back("assets/skyboxes/Test/zpos.png");
+    faces.push_back("assets/skyboxes/Test/zneg.png");
+    Skybox* skybox = new Skybox(faces); 
+    Utils::checkGlError("skybox error");
 
 #if 1
 
 
-                             //Make hair
-                             std::vector<Hair> vh;
-                             for(int i = 0; i < 300; ++i)
-                             {
-                                 Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
-                                 h.addForce( glm::vec3(0.01, 0.0, 0.0) );
-                                 vh.push_back(h);
-                             }
-                             glLineWidth(0.2f);
+    //Make hair
+    std::vector<Hair> vh;
+    for(int i = 0; i < 300; ++i)
+    {
+        Hair h(60, 0.02f, glm::vec3(-0.5 + .0016*i, 0.5,0.0));
+        h.addForce( glm::vec3(0.01, 0.0, 0.0) );
+        vh.push_back(h);
+    }
+    glLineWidth(0.2f);
 
-                             Times t;
-                             while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
-                             {
-                                 //ImGui_ImplGlfwGL3_NewFrame();
-                                 t.globalTime = glfwGetTime();
-                                 t.elapsedTime = t.globalTime - t.startTime;
-                                 t.deltaTime = t.globalTime - t.previousTime;
-                                 t.previousTime = t.globalTime;
-                                 scene1(p, skybox, t);
+    Times t;
+    while(glfwGetKey( window, GLFW_KEY_ESCAPE ) != GLFW_PRESS )
+    {
+        //ImGui_ImplGlfwGL3_NewFrame();
+        t.globalTime = glfwGetTime();
+        t.elapsedTime = t.globalTime - t.startTime;
+        t.deltaTime = t.globalTime - t.previousTime;
+        t.previousTime = t.globalTime;
+        scene1(p, skybox, t);
 #if 0
-                                 ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
-                                 ImGui::Begin("aogl");
-                                 ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
-                                 ImGui::DragInt("Directional Lights", &directionalLightCount, .1f, 0, 100);
-                                 ImGui::DragInt("Spot Lights", &spotLightCount, .1f, 0, 100);
-                                 ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-                                 ImGui::End();
+        ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
+        ImGui::Begin("aogl");
+        ImGui::DragInt("Point Lights", &pointLightCount, .1f, 0, 100);
+        ImGui::DragInt("Directional Lights", &directionalLightCount, .1f, 0, 100);
+        ImGui::DragInt("Spot Lights", &spotLightCount, .1f, 0, 100);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
 
-                                 ImGui::Render();
+        ImGui::Render();
 #endif
-                                 Utils::checkGlError("end frame");
-                                 glfwSwapBuffers(window);
-                                 glfwPollEvents();
-                             }
-                             //NOTE(marc) : We should properly clean the app, but since this will be the last
-                             //thing the program will do, it will clean them for us
+        Utils::checkGlError("end frame");
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+    //NOTE(marc) : We should properly clean the app, but since this will be the last
+    //thing the program will do, it will clean them for us
 #endif
-                             // Close OpenGL window and terminate GLFW
-                             ImGui_ImplGlfwGL3_Shutdown();
-                             glfwTerminate();
-                             return(0);
-                         }
+    // Close OpenGL window and terminate GLFW
+    ImGui_ImplGlfwGL3_Shutdown();
+    glfwTerminate();
+    return(0);
+}

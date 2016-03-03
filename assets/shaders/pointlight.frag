@@ -52,9 +52,8 @@ void main(void)
         float closestDepth = texture( Shadow, dir ).r;
         closestDepth *= 100.f;
         float currentDepth = length(dir);
-        float shadow = currentDepth - 0.005 > closestDepth ? 1.0 : 0.0;
+        float shadow = currentDepth - 0.05 > closestDepth ? 0.0 : 1.0;
         
 	Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
-        //Color = shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
-        Color = vec4(vec3(closestDepth/100.f), 1.0);
+        Color = shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
 }
