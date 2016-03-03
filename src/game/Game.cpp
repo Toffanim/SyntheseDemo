@@ -658,14 +658,13 @@ glClearDepth(1.f);
 
     // Draw skybox as last
     //TODO(marc) : correct sun , this is not worling properly
-    glm::vec4 sunNDC = mvp * (glm::vec4(-5.0, -5.0, 0.0, 1.0));
+    glm::vec4 sunNDC = mvp * ((-10000.f)*glm::vec4(-1.f, -1.f, 0.f, 0.f));
     sunNDC = glm::vec4( glm::vec3(sunNDC)/sunNDC.w, 1.0);
     sunNDC += 1.0;
     sunNDC *= 0.5;
-    std::cout << sunNDC.x << "  " << sunNDC.y << "  " << sunNDC.z << std::endl;
+    std::cout << sunNDC.x <<"  "<< sunNDC.y << std::endl;
     view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
     skybox->display(view, projection, glm::vec3(sunNDC), textureManager["gBufferDepth"]);
-        
     Utils::checkGlError("Skybox");
     glDisable(GL_BLEND);
 
@@ -835,8 +834,13 @@ void Game::loadShaders()
     bloomShader->attach(blitVertShader);
     bloomShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/bloom.frag");
     bloomShader->link();
+    Shader* lightShaftShader = new Shader("Light shaft");
+    lightShaftShader->attach(blitVertShader);
+    lightShaftShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/lightShaft.frag");
+    lightShaftShader->link();
     
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "lightShaft", lightShaftShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "plShadow", plShadowShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "depth", blitDepth));
     shaderManager.getManaged().insert( pair<string, Shader*>( "shadow", shadowShader));
