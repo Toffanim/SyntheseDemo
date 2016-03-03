@@ -18,6 +18,7 @@ void main()
 	float y = gl_FragCoord.y/screenHeight;
 	float z = gl_FragCoord.z; // Already in range [0,1]
 
+
     float depth = texture(DepthBuffer, vec2(x, y)).r;
     if ( depth >= 0.999 )
     {

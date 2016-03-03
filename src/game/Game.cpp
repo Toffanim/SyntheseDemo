@@ -658,11 +658,13 @@ glClearDepth(1.f);
 
     // Draw skybox as last
     //TODO(marc) : correct sun , this is not worling properly
-    glm::vec4 sunNDC = mvp * ((-100.f) * glm::vec4(-1.0, -1.0, 0.0, 1.0));
-    glm::vec3 sunDir = glm::vec3(sunNDC)/sunNDC.w;
-    //std::cout << sunDir.x << "  " << sunDir.y << "  " << sunDir.z << std::endl;
+    glm::vec4 sunNDC = mvp * (glm::vec4(-5.0, -5.0, 0.0, 1.0));
+    sunNDC = glm::vec4( glm::vec3(sunNDC)/sunNDC.w, 1.0);
+    sunNDC += 1.0;
+    sunNDC *= 0.5;
+    std::cout << sunNDC.x << "  " << sunNDC.y << "  " << sunNDC.z << std::endl;
     view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
-    skybox->display(view, projection, sunDir, textureManager["gBufferDepth"]);
+    skybox->display(view, projection, glm::vec3(sunNDC), textureManager["gBufferDepth"]);
         
     Utils::checkGlError("Skybox");
     glDisable(GL_BLEND);
