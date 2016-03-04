@@ -340,25 +340,23 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     //Render scene
     glBindVertexArray(vaoManager["cube"]);
     glm::mat4 m = glm::mat4();
-    m = glm::translate(m, glm::vec3(0.f, 5.f, 0.f));
+    m = glm::translate(m, glm::vec3(0.f, 0.f, 5.f));
     mv = worldToView * m;
     mvp = projection * mv;
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
     glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
     m = glm::mat4();
-    m = glm::translate(m, glm::vec3(0.f, 5.f, -1.5f));
+    m = glm::translate(m, glm::vec3(0.f, 0.f, 5.0f));
     mv = worldToView * m;
     mvp = projection * mv;
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-    glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount);
- 
+    glDrawElementsInstanced(GL_TRIANGLES, 12*3, GL_UNSIGNED_INT, (void*)0, (int) instanceCount); 
     glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
     glBindVertexArray(vaoManager["plane"]);
     m = glm::mat4();
-    m = glm::rotate( m, glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
-    m = glm::scale( m, glm::vec3(0.1f, 0.1f, 0.1f));
+    m = glm::scale( m, glm::vec3(0.05f, 0.05f, 0.05f));
     mv = worldToView * m;
     mvp = projection * mv;
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
@@ -449,7 +447,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
 
-#if 0
+#if 1
     const int uboSize = 512;
     const int SPOT_LIGHT_COUNT = 1;
     // Map the spot light data UBO
@@ -496,7 +494,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
 
 
-#if 1
+#if 0
     const int uboSize = 512;
     const int LIGHT_COUNT = 1;
     // Bind the shadow FBO
@@ -569,7 +567,7 @@ glClearDepth(1.f);
     // Bind the same VAO for all lights
     glBindVertexArray(vaoManager["quad"]);
 
-#if 1
+#if 0
     // Render point lights
     shaderManager["pointLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
@@ -598,7 +596,7 @@ glClearDepth(1.f);
     shaderManager["pointLight"]->unuse();
 #endif
     
-#if 0
+#if 1
 // Render directional lights
     shaderManager["dirLight"]->use();
     glUniformMatrix4fv(glGetUniformLocation(shaderManager["dirLight"]->getProgram(),"InverseProjection") , 1, 0, glm::value_ptr(inverseProjection));
@@ -754,6 +752,28 @@ glClearDepth(1.f);
     shaderManager["bloom"]->unuse();
     Utils::checkGlError("bloom");
 #endif
+
+#if 1
+    shaderManager["ssr"]->use();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx3"], 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferNormals"]);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
+    glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "ColorBuffer"), 0);
+    glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "NormalBuffer"), 1);
+    glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "DepthBuffer"), 2);
+    
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "proj"), 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "InverseProjection"), 1, GL_FALSE, glm::value_ptr(inverseProjection));
+    glBindVertexArray(vaoManager["quad"]);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    shaderManager["ssr"]->unuse();
+#endif
+
     
 #if 1
         shaderManager["lightShaft"]->use();
@@ -849,7 +869,7 @@ glClearDepth(1.f);
     // Viewport 
     glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
     // Bind texture
-    glBindTexture(GL_TEXTURE_2D, textureManager["fx4"]);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blit"]->unuse();
@@ -920,8 +940,13 @@ void Game::loadShaders()
     sunShader->attach(blitVertShader);
     sunShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/sun.frag");
     sunShader->link();
+    Shader* ssrShader = new Shader("SSR shader");
+    ssrShader->attach(blitVertShader);
+    ssrShader->attach(GL_FRAGMENT_SHADER, "assets/shaders/SSRR.frag");
+    ssrShader->link();
     
     shaderManager.getManaged().insert( pair<string, Shader*>( "dirLight", dlShader));
+    shaderManager.getManaged().insert( pair<string, Shader*>( "ssr", ssrShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "sun", sunShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "lightShaft", lightShaftShader));
     shaderManager.getManaged().insert( pair<string, Shader*>( "plShadow", plShadowShader));
@@ -1272,6 +1297,7 @@ int Game::mainLoop()
       Create all the vars that we may need for rendering such as shader, VBO, FBO, etc
       .     */
     Player* p = new Player();
+    p->setPosition(glm::vec3(0.f, 1.f, -2.f));
     
     glfwSetKeyCallback( window, key_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
