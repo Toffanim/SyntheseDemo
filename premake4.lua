@@ -15,7 +15,7 @@ solution "aogl"
          links {"X11","Xrandr", "Xi", "Xxf86vm", "rt", "GL", "GLU", "pthread", "assimp"}
        
       configuration { "windows" }
-         links {"glu32","opengl32", "gdi32", "winmm", "user32"}
+         links {"glu32","opengl32", "gdi32", "winmm", "user32", "assimp"}
 
       configuration { "macosx" }
          linkoptions { "-framework OpenGL", "-framework CoreVideo" , "-framework Cocoa", "-framework IOKit"}
@@ -23,6 +23,7 @@ solution "aogl"
        
       configuration "Debug"
          defines { "DEBUG" }
+		 libdirs { "bin/debug/" }
          flags {"ExtraWarnings", "Symbols" }
          location "build/" 
          targetsuffix "_d"
