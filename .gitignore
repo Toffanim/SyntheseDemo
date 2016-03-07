@@ -5,3 +5,7 @@
 *.xcf
 *.sln
 *.vcxproj
+
+demo_d
+/bin/*.a
+/obj/*
