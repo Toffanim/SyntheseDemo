@@ -23,7 +23,7 @@ solution "aogl"
        
       configuration "Debug"
          defines { "DEBUG" }
-		 libdirs { "bin/debug/" }
+         libdirs { "bin/debug/" }
          flags {"ExtraWarnings", "Symbols" }
          location "build/" 
          targetsuffix "_d"
@@ -79,7 +79,6 @@ solution "aogl"
       configuration "Debug"
          defines { "DEBUG" }
          flags { "Symbols" }
-         targetdir "bin/debug"
          targetdir "bin/debug"
 
       configuration "Release"
