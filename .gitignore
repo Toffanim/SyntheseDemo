@@ -1,11 +1,22 @@
 *.make
 *~
 *.o
+*.obj
 *.d
 *.xcf
 *.sln
 *.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.opensdf
+*.sdf
+*.suo
+*.idb
+*.ilk
+*.pdb
 
 demo_d
+demo_d.exe
 /bin/*.a
-/obj/*
+build/obj/*
+obj/*
