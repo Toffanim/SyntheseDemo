@@ -52,6 +52,6 @@ void main(void)
 
 	float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -0.005, 1.0), 0.0);
 	Color = shadowDepth * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
-Color = vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
+//Color = vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
         //Color = vec4( vec3(shadowDepth), 1.0);
 }

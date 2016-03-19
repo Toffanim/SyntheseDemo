@@ -21,7 +21,7 @@ class Skybox
 public :
     Skybox( const std::vector< const GLchar*>& faces );
     ~Skybox();
-    void display( glm::mat4 view, glm::mat4 proj, GLuint depth );
+	void display(glm::mat4 view, glm::mat4 proj, GLuint depth, int screenWidth, int screenHeight);
 private :
     GLuint loadCubemap( const std::vector<const GLchar*>& faces );
     GLuint texture_id;

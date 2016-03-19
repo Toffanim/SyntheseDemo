@@ -10,8 +10,8 @@ using namespace std;
 
 Player::Player(int forwardKey, int backwardKey, int rightKey, int leftKey) :
         forwardKey(forwardKey), backwardKey(backwardKey), rightKey(rightKey), leftKey(leftKey),
-        moveForward(false), moveRight(false), moveLeft(false), moveBackward(false),
-        speed(2.0f), position( glm::vec3( 0.0f, 0.0f, 0.0f )),
+		moveForward(false), moveRight(false), moveLeft(false), moveBackward(false), moveUp(false), moveDown(false),
+        speed(10.0f), position( glm::vec3( 0.0f, 0.0f, 0.0f )),
         lastX(0.0f), lastY(0.0f), firstTime(true), life(100), gold(0)
         , atkPerSec( 0.5f ), atk( 2 ), lastAttack( 0.0f ), key(1)
 {
@@ -24,11 +24,15 @@ Player::Player(int forwardKey, int backwardKey, int rightKey, int leftKey) :
     c->addKeyListener( pair<int, int>(backwardKey, GLFW_PRESS), bind(&Player::startMoveBackward, this));
     c->addKeyListener( pair<int, int>(rightKey, GLFW_PRESS), bind(&Player::startMoveRight, this));
     c->addKeyListener( pair<int, int>(leftKey, GLFW_PRESS), bind(&Player::startMoveLeft, this));
+	c->addKeyListener(pair<int, int>(GLFW_KEY_UP, GLFW_PRESS), bind(&Player::startMoveUp, this));
+	c->addKeyListener(pair<int, int>(GLFW_KEY_DOWN, GLFW_PRESS), bind(&Player::startMoveDown, this));
 
     c->addKeyListener( pair<int, int>(forwardKey, GLFW_RELEASE), bind(&Player::stopMoveForward, this));
     c->addKeyListener( pair<int, int>(backwardKey, GLFW_RELEASE), bind(&Player::stopMoveBackward, this));
     c->addKeyListener( pair<int, int>(rightKey, GLFW_RELEASE), bind(&Player::stopMoveRight, this));
     c->addKeyListener( pair<int, int>(leftKey, GLFW_RELEASE), bind(&Player::stopMoveLeft, this));
+	c->addKeyListener(pair<int, int>(GLFW_KEY_UP, GLFW_RELEASE), bind(&Player::stopMoveUp, this));
+	c->addKeyListener(pair<int, int>(GLFW_KEY_DOWN, GLFW_RELEASE), bind(&Player::stopMoveDown, this));
 
     std::function<void(double, double)> f = bind(&Player::mouseMotion, this, std::placeholders::_1, std::placeholders::_2);
     c->addCursorListener( f );

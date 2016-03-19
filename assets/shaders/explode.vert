@@ -17,8 +17,8 @@ uniform bool reverse_normal;
 out block
 {
 	vec2 Texcoord;
-	vec3 CameraSpacePosition;
-	vec3 CameraSpaceNormal;
+	vec3 Position;
+	vec3 Normal;
 } Out;
 
 void main()
@@ -29,7 +29,11 @@ void main()
 	if(reverse_normal)
 	    n = -n;
 
-	Out.CameraSpacePosition = vec3(MV * vec4(p, 1.0));
-	Out.CameraSpaceNormal = vec3(MV * vec4(n, 0.0));
-	gl_Position = MVP * vec4(p, 1.0);
+    Out.Position = Position;
+	Out.Normal = n;
+	gl_Position = vec4(p, 1.0);
+
+	//Out.CameraSpacePosition = vec3(MV * vec4(p, 1.0));
+	//Out.CameraSpaceNormal = vec3(MV * vec4(n, 0.0));
+	//gl_Position = MVP * vec4(p, 1.0);
 }
