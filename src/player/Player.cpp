@@ -11,7 +11,7 @@ using namespace std;
 Player::Player(int forwardKey, int backwardKey, int rightKey, int leftKey) :
         forwardKey(forwardKey), backwardKey(backwardKey), rightKey(rightKey), leftKey(leftKey),
 		moveForward(false), moveRight(false), moveLeft(false), moveBackward(false), moveUp(false), moveDown(false),
-        speed(10.0f), position( glm::vec3( 0.0f, 0.0f, 0.0f )),
+        speed(100.0f), position( glm::vec3( 0.0f, 0.0f, 0.0f )),
         lastX(0.0f), lastY(0.0f), firstTime(true), life(100), gold(0)
         , atkPerSec( 0.5f ), atk( 2 ), lastAttack( 0.0f ), key(1)
 {

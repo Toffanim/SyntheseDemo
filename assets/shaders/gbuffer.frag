@@ -17,6 +17,7 @@ uniform float Time;
 uniform sampler2D Diffuse;
 uniform sampler2D Specular;
 uniform float SpecularPower;
+uniform float colorMultiplier = 3.f;
 
 layout(location = COLOR ) out vec4 Color;
 layout(location = NORMAL) out vec4 Normal;
@@ -42,7 +43,7 @@ void main()
 #endif
 		n = -n;
 		*/
-	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb * 3.0;
+	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb * colorMultiplier;
 	float specularColor = texture(Specular, In.Texcoord).r;
 	Color = vec4(diffuseColor, specularColor);
 	Occludee = vec4(vec3(0.f), 1.f);
