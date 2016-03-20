@@ -38,10 +38,10 @@ void main(void)
         }
         else
         {
-            float l0 = length(p2.xy - p0.xy) * 32.0 + 1.0;
-            float l1 = length(p3.xy - p2.xy) * 32.0 + 1.0;
-            float l2 = length(p3.xy - p1.xy) * 32.0 + 1.0;
-            float l3 = length(p1.xy - p0.xy) * 32.0 + 1.0;
+            float l0 = length(p2.xy - p0.xy) * 16.0 + 1.0;
+            float l1 = length(p3.xy - p2.xy) * 16.0 + 1.0;
+            float l2 = length(p3.xy - p1.xy) * 16.0 + 1.0;
+            float l3 = length(p1.xy - p0.xy) * 16.0 + 1.0;
             gl_TessLevelOuter[0] = l0;
             gl_TessLevelOuter[1] = l1;
             gl_TessLevelOuter[2] = l2;
