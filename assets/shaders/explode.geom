@@ -23,11 +23,15 @@ uniform bool reverse_normal;
 uniform mat4 inverse_proj;
 uniform vec3 origin = vec3( 0.f, 0.f, 0.f );
 uniform float magnitude;
+uniform bool reverse;
+uniform float reverse_from_max;
 
 
 vec4 explode(vec4 position, vec3 normal)
 {
-    vec3 direction = normal * Time * magnitude; 
+    vec3 direction = normal * log( 1.f + Time) * magnitude;
+    if(reverse)
+	 direction = normal * (reverse_from_max / exp(exp(Time))); 
     return position + vec4(direction, 0.0f);
 }
 

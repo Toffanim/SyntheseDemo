@@ -14,9 +14,14 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, GLfloat yaw , GLfloat pitch ) :
     updateCameraVectors();
 }
 
+glm::mat4 Camera::getViewMatrix( glm::vec3 focus_position )
+{
+    return glm::lookAt(position, focus_position, up);
+}
+
 glm::mat4 Camera::getViewMatrix()
 {
-    return glm::lookAt(position, position + front, up);
+	return glm::lookAt(position, position + front, up);
 }
 
 glm::mat4 Camera::getRotatedViewMatrix()

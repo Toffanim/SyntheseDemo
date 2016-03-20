@@ -332,6 +332,13 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 	vector < SpotLight > spotLights;
 	vector < PointLight > pointLights;
 
+	float firstCut = 5.f;
+	float secondCut = 8.f;
+	float thirdCut = 9.f;
+	float forthCut = 20.f;
+	float fifthCut = 30.f;
+	float sixthCut = 40.f;
+
 
     glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
                                             (float)screenWidth/(float)screenHeight,
@@ -342,10 +349,13 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     int pointLightCount = 0;
     int directionalLightCount = 2;
     int spotLightCount = 4;
-	if (times.elapsedTime < 4)
-		spotLightCount = times.elapsedTime;
+	if (times.elapsedTime < firstCut)
+		spotLightCount = min( spotLightCount, (int)times.elapsedTime);
     p->move(times.deltaTime);
-    float t = times.globalTime;  
+    float t = times.globalTime; 
+
+
+
     //Clean FBOs
     glEnable(GL_DEPTH_TEST);
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -355,16 +365,45 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	float x = min(9.f, times.elapsedTime) * sin(t);
-	float y = min(9.f, times.elapsedTime) * cos(t);
-	glm::vec3 movingCubePosition = glm::vec3( x, 0.5f, y);
+	// Animate object in scene
+
+	glm::vec3 movingCubePosition; 
+	if (times.elapsedTime < firstCut)
+	{
+		movingCubePosition = glm::vec3(0.f, 1.f, 0.f);
+	}
+	else if (times.elapsedTime < secondCut)
+	{
+		float localTime = times.elapsedTime - firstCut;
+		float diff = secondCut - firstCut;
+		float z = 1.f * (localTime / diff );
+		movingCubePosition = glm::vec3(0.f, 1.f + z, 0.f);
+	}
+	else if (times.elapsedTime < thirdCut )
+	{
+		float localTime = times.elapsedTime - secondCut;
+		movingCubePosition = glm::vec3(0.f, 2.f , 0.f);
+
+	}
+	else if (times.elapsedTime < forthCut)
+	{
+		float localTime = times.elapsedTime - thirdCut;
+		float x = min(9.f, (localTime)) * sin(t);
+		float y = min(9.f, (localTime)) * cos(t);
+		movingCubePosition = glm::vec3(x, 2.f + abs(x * 2), y);
+	}
+	else if (times.elapsedTime < sixthCut)
+	{
+		float localTime = times.elapsedTime - thirdCut;
+		movingCubePosition = glm::vec3(8.2f, 18.5, 3.5f);
+	}
 	glm::mat4 movingCubeModel = glm::translate(glm::mat4(), movingCubePosition);
 
 	int roomSize = 20;
 	glm::mat4 roomModel = glm::translate(glm::mat4(), glm::vec3(0.f, (roomSize / 2.f), 0.f)); 
 	roomModel = glm::scale(roomModel, glm::vec3(roomSize));
 
-
+	//Create spotlights
 	SpotLight s1 = {        // Setup light data                
 		glm::vec3( roomSize/2.f ),  //Spot position
 		10.f,  //Spot angle
@@ -405,7 +444,42 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 
 
     //Create matrices
-    glm::mat4 worldToView = p->getCamera()->getViewMatrix();
+	glm::mat4 worldToView;	
+	if (times.elapsedTime < firstCut)
+	{
+		float localTime = times.elapsedTime;
+		p->setPosition(glm::vec3(0.f, 2.f, -(roomSize / 2.f)));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+
+	}
+	else if (times.elapsedTime < secondCut)
+	{
+		float localTime = times.elapsedTime - firstCut;
+		float diff = secondCut - firstCut;
+		float x = (roomSize / 2.f) * sin( (localTime/diff) * 2 * PI );
+		float y = (roomSize / 2.f) * cos( (localTime/diff) * 2 * PI);
+		p->setPosition(glm::vec3(x, 2.f, y));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+	else if (times.elapsedTime < thirdCut)
+	{
+		float localTime = times.elapsedTime - secondCut;
+		float diff = thirdCut - secondCut;
+		float mul = localTime / diff;
+		p->setPosition(glm::vec3(0.f, 2.f + mul * ((roomSize / 2.f) - 2.f), (1.f - mul) * -((roomSize / 2.f))));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+	else if (times.elapsedTime < forthCut)
+	{
+		p->setPosition(glm::vec3(0.f, (roomSize / 2.f), 0.f));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+	else if (times.elapsedTime < sixthCut)
+	{
+		p->setPosition(glm::vec3(0.f, (roomSize / 2.f), 0.f));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+
     glm::mat4 objectToWorld;
     glm::mat4 mv = worldToView * objectToWorld;
     glm::mat4 mvp = projection * mv;
@@ -475,24 +549,37 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 	glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "Diffuse"), 0);
 	glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "Specular"), 1);
 
-	if ( times.elapsedTime < 10)
+	if ( times.elapsedTime < forthCut)
 		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "magnitude"), 0.f);
-	else
+	else if ( times.elapsedTime < fifthCut )
 	{
 		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "magnitude"), 10.f);
-		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "Time"), (times.elapsedTime - 10));
+		glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse"), 0);
+		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse_from_max"), 50.f);
+		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "Time"), (times.elapsedTime - forthCut));
+	}
+	else if (times.elapsedTime < sixthCut)
+	{
+		float diff = fifthCut - forthCut;
+		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "magnitude"), 10.f);
+		glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse"), 1);
+		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse_from_max"), diff * 10.f);
+		glUniform1f(glGetUniformLocation(shaderManager["explode"]->getProgram(), "Time"), (times.elapsedTime - fifthCut));
 	}
 	//Render scene
-	// Render room cube
 	glBindVertexArray(vaoManager["cube"]);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureManager["RoomTex"]);
-	mv = worldToView * roomModel;
-	mvp = projection * mv;
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["explode"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["explode"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-	glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse_normal"), 1);
-	glDrawElements(GL_PATCHES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+	if (times.elapsedTime < fifthCut)
+	{
+		// Render room cube		
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureManager["RoomTex"]);
+		mv = worldToView * roomModel;
+		mvp = projection * mv;
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["explode"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["explode"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+		glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse_normal"), 1);
+		glDrawElements(GL_PATCHES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+	}
 	glUniform1i(glGetUniformLocation(shaderManager["explode"]->getProgram(), "reverse_normal"), 0);
 	// Render moving cube
 	glActiveTexture(GL_TEXTURE0);
@@ -821,48 +908,53 @@ glClearDepth(1.f);
     glDisable(GL_BLEND);
 
 #if 1
-    glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx5"], 0);
-    glClear(GL_COLOR_BUFFER_BIT); 
-    glViewport(0,0, screenWidth, screenHeight);
-    shaderManager["bright"]->use();
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"] );
-    glBindVertexArray(vaoManager["quad"]);
-    glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-    shaderManager["bright"]->unuse();
+		glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx5"], 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glViewport(0, 0, screenWidth, screenHeight);
+		shaderManager["bright"]->use();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
+		glBindVertexArray(vaoManager["quad"]);
+		glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 
-    int amount = min( 6.f, times.elapsedTime );
-    GLboolean horizontal = true, first_iteration = true;
-    amount = amount + (amount%2);
-    shaderManager["blur"]->use();
-    for (GLuint i = 0; i < amount; i++)
-    {
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager[ "fx"+ to_string( 2 + horizontal) ], 0);
-        glUniform1i(glGetUniformLocation(shaderManager["blur"]->getProgram(), "horizontal"), horizontal);
-        glBindTexture(
-            GL_TEXTURE_2D, first_iteration ? textureManager["fx5"] : textureManager[ "fx" + to_string( 2 + !horizontal) ]
-                      ); 
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-        horizontal = !horizontal;
-        if (first_iteration)
-            first_iteration = false;
-    }
-    shaderManager["blur"]->unuse();
-    
-    shaderManager["bloom"]->use();
-    glBindFramebuffer( GL_FRAMEBUFFER, fboManager["fx"] );
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_TEXTURE_2D, textureManager["fx1"], 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureManager["fx0"]);
-    glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "scene"), 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
-    glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "bloomBlur"), 1);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-    shaderManager["bloom"]->unuse();
-    Utils::checkGlError("bloom");
+		if (times.elapsedTime < secondCut)
+			glClear(GL_COLOR_BUFFER_BIT);  //Clear texture to black so we dont add any bloom areas
+
+		shaderManager["bright"]->unuse();
+
+		int amount = max(0.f, (times.elapsedTime - secondCut)*20.f);
+		amount = min(6, amount);
+		GLboolean horizontal = true, first_iteration = true;
+		amount = amount + (amount % 2);
+		shaderManager["blur"]->use();
+		for (GLuint i = 0; i < amount; i++)
+		{
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx" + to_string(2 + horizontal)], 0);
+			glUniform1i(glGetUniformLocation(shaderManager["blur"]->getProgram(), "horizontal"), horizontal);
+			glBindTexture(
+				GL_TEXTURE_2D, first_iteration ? textureManager["fx5"] : textureManager["fx" + to_string(2 + !horizontal)]
+				);
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+			horizontal = !horizontal;
+			if (first_iteration)
+				first_iteration = false;
+		}
+		shaderManager["blur"]->unuse();
+
+		shaderManager["bloom"]->use();
+		glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx1"], 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureManager["fx0"]);
+		glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "scene"), 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
+		glUniform1i(glGetUniformLocation(shaderManager["bloom"]->getProgram(), "bloomBlur"), 1);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+		shaderManager["bloom"]->unuse();
+		Utils::checkGlError("bloom");
 #endif
 
 #if 0
