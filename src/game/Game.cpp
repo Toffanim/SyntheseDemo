@@ -1076,7 +1076,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 
 	glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
 		(float)screenWidth / (float)screenHeight,
-		0.1f, 100.0f);
+		0.1f, 1000.0f);
 	glm::mat4 view = glm::mat4();
 
 	int instanceCount = 1;
@@ -1106,7 +1106,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	dirLights.push_back(d1);
 
 	PointLight p1 = {
-		glm::vec3( 4.f, 0.f, 0.f ), // position
+		glm::vec3( 2.f, 2.f, 0.f ), // position
 		0, //padding
 		glm::vec3(1.f, 0.f, 0.f), //color
 		100.f, //intensity
@@ -1287,13 +1287,13 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager["shadow"]);
 	// Use shadow program
 	shaderManager["shadow"]->use();
-	glViewport(0, 0, 1024, 1024);
-
+	glViewport(0, 0, 4096, 4096);
+	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, fboManager["shadowBigRBO"]);
 	for (int i = 0; i < directionalLightCount; ++i)
 	{
 		glm::vec3 lp = -dirLights[i].direction * 10.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-50.f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-70.f, 70.0f, -70.0f, 70.0f, 0.1f, 100.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
@@ -1301,7 +1301,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 
 		// Attach shadow texture for current light
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow" + to_string(i)], 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow" + to_string(6+i)], 0);
 		// Clear only the depth buffer
 		glClear(GL_DEPTH_BUFFER_BIT);
 		Utils::checkGlError("rendering shadowmap");
@@ -1356,7 +1356,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
 		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
-		glm::mat4 objectToWorld = worldToView;
+		glm::mat4 objectToWorld = worldToView * movingCubeModel;
 
 		// Attach shadow texture for current light
 		// glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow"], 0);
@@ -1414,11 +1414,11 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glActiveTexture(GL_TEXTURE3);
 	for (int i = 0; i < directionalLightCount; ++i)
 	{
-		glBindTexture(GL_TEXTURE_2D, textureManager["shadow" + to_string(i)]);
+		glBindTexture(GL_TEXTURE_2D, textureManager["shadow" + to_string(6+i)]);
 		glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
 		glm::vec3 lp = -dirLights[i].direction * 10.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-50.f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-70.f, 70.0f, -70.0f, 70.0f, 0.1f, 100.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.0f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
@@ -1911,6 +1911,7 @@ void Game::initShadows()
     FboManager& fboManager = Manager<FboManager>::instance();
 
     const int TEX_SIZE = 1024;
+	const int BIG_TEX_SIZE = 4096;
     const int LIGHT_COUNT = 10;
     // Create shadow FBO
     GLuint shadowFbo;
@@ -1921,8 +1922,16 @@ void Game::initShadows()
     glGenTextures(LIGHT_COUNT, shadowTextures);
     for (int i = 0; i < LIGHT_COUNT; ++i) 
     {
+
         glBindTexture(GL_TEXTURE_2D, shadowTextures[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		if (i > LIGHT_COUNT / 2)
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, BIG_TEX_SIZE, BIG_TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		}
+		else
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		}
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -1934,19 +1943,23 @@ void Game::initShadows()
     fboManager.getManaged().insert(pair<string, FBO>( "shadow", {shadowFbo}));
     // Create a render buffer since we don't need to read shadow color 
     // in a texture
-    GLuint shadowRenderBuffer;
-    glGenRenderbuffers(1, &shadowRenderBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, TEX_SIZE, TEX_SIZE);
+    GLuint shadowRenderBuffer[2];
+    glGenRenderbuffers(2, shadowRenderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer[1]);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, BIG_TEX_SIZE, BIG_TEX_SIZE);
+	glBindRenderbuffer(GL_RENDERBUFFER, shadowRenderBuffer[0]);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, TEX_SIZE, TEX_SIZE);
     // Attach the first texture to the depth attachment
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTextures[0], 0);
     // Attach the renderbuffer
-    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, shadowRenderBuffer[0]);
     if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
         std::cout << "Error shadow fbo" << std::endl;
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
+	fboManager.getManaged().insert(pair<string, FBO>("shadowRBO", { shadowRenderBuffer[0] }));
+	fboManager.getManaged().insert(pair<string, FBO>("shadowBigRBO", { shadowRenderBuffer[1] }));
 
     //Omnidirectional Shadow
 	GLuint plShadowFBO;

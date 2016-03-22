@@ -9,10 +9,10 @@ uniform int InstanceCount;
 
 void main(void)
 {
-    const vec4 vertices[] = vec4[](vec4(-0.5, 0.0, -0.5, 1.0),
-                                   vec4( 0.5, 0.0, -0.5, 1.0),
-                                   vec4(-0.5, 0.0,  0.5, 1.0),
-                                   vec4( 0.5, 0.0,  0.5, 1.0));
+    const vec4 vertices[] = vec4[](vec4(-0.5,-1.0, -0.5, 1.0),
+                                   vec4( 0.5, -1.0, -0.5, 1.0),
+                                   vec4(-0.5, -1.0,  0.5, 1.0),
+                                   vec4( 0.5, -1.0,  0.5, 1.0));
 
     int x = gl_InstanceID & (InstanceCount-1);
     int y = gl_InstanceID / InstanceCount;

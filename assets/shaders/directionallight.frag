@@ -50,8 +50,19 @@ void main(void)
 	vec4 wlP = DirectionalLight.WorldToLightScreen * vec4(p, 1.0);
 	vec3 lP = vec3(wlP / wlP.w) * 0.5 + 0.5;
 
-	float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -0.005, 1.0), 0.0);
-	Color = vec4(diffuseColor,1.0)*0.2 + shadowDepth * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);  //Ambient = 0.2*diffuse
+	//Simple PCF (3*3 mean)
+	float shadow = 0.0;
+	vec2 texelSize = 1.0 / textureSize(Shadow, 0);
+	for(int x = -1; x <= 1; ++x)
+	{
+		for(int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = textureProj(Shadow, vec4(lP.xy + vec2(x, y) * texelSize, lP.z -0.005, 1.0), 0.f); 
+			shadow += pcfDepth;       
+		}    
+	}
+	shadow /= 9.0;
+	Color = vec4(diffuseColor,1.0)*0.2 + shadow * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);  //Ambient = 0.2*diffuse
     //Color = vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
     //Color = vec4( vec3(shadowDepth), 1.0);
 }
