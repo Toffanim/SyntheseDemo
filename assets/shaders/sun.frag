@@ -16,7 +16,7 @@ void main()
     float depth = texture(DepthBuffer, In.Texcoord).r;
     if ( depth >= 0.99999999999 )
     {
-        if ( distance( vec2(sun), In.Texcoord ) <= 0.05 )
+        if ( distance( vec2(sun), In.Texcoord ) <= 0.04 )
              color = vec4( 2.0, 2.0, 2.0, 1.0);   
     }
 }

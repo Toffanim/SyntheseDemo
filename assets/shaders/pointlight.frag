@@ -13,6 +13,7 @@ uniform samplerCube Shadow;
 layout(location = 0, index = 0) out vec4 Color;
 
 uniform mat4 InverseProjection;
+uniform float farPlane;
 
 uniform light
 {
@@ -50,10 +51,11 @@ void main(void)
 
         vec3 dir = p - PointLight.Position;
         float closestDepth = texture( Shadow, dir ).r;
-        closestDepth *= 100.f;
+        closestDepth *= farPlane;
         float currentDepth = length(dir);
         float shadow = currentDepth - 0.05 > closestDepth ? 0.0 : 1.0;
         
-	Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
-        Color = shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
+	//Color = vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
+        Color =  shadow * vec4(pointLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
+	//Color = vec4(vec3(shadow), 1.f);
 }

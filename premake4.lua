@@ -12,13 +12,13 @@ solution "aogl"
       buildoptions { "-std=c++11",  "-Wall" }
      
       configuration { "linux" }
-         links {"X11","Xrandr", "Xi", "Xxf86vm", "rt", "GL", "GLU", "pthread", "assimp"}
+         links {"X11","Xrandr", "Xi", "Xxf86vm", "rt", "GL", "GLU", "pthread", "assimp", "OpenAL"}
        
       configuration { "windows" }
-         links {"glu32","opengl32", "gdi32", "winmm", "user32", "assimp"}
+         links {"glu32","opengl32", "gdi32", "winmm", "user32", "assimp", "OpenAL32"}
 
       configuration { "macosx" }
-         linkoptions { "-framework OpenGL", "-framework CoreVideo" , "-framework Cocoa", "-framework IOKit"}
+         linkoptions { "-framework OpenGL", "-framework CoreVideo" , "-framework Cocoa", "-framework IOKit", "-framework OpenAL"}
          
        
       configuration "Debug"

@@ -19,7 +19,7 @@ uniform light
 	vec3 Direction;
 	vec3 Color;
 	float Intensity;
-        mat4 WorldToLightScreen;
+     mat4 WorldToLightScreen;
 } DirectionalLight;
 
 vec3 directionalLight(in vec3 n, in vec3 v, in vec3 diffuseColor, in vec3 specularColor, in float specularPower)
@@ -51,7 +51,7 @@ void main(void)
 	vec3 lP = vec3(wlP / wlP.w) * 0.5 + 0.5;
 
 	float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -0.005, 1.0), 0.0);
-	Color = shadowDepth * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
-Color = vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
-        //Color = vec4( vec3(shadowDepth), 1.0);
+	Color = vec4(diffuseColor,1.0)*0.2 + shadowDepth * vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);  //Ambient = 0.2*diffuse
+    //Color = vec4(directionalLight(n, v, diffuseColor, specularColor, specularPower), 1.0);
+    //Color = vec4( vec3(shadowDepth), 1.0);
 }

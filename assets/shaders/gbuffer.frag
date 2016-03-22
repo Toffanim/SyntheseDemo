@@ -1,10 +1,8 @@
 #version 410 core
 
-#define POSITION	0
-#define NORMAL		1
-#define TEXCOORD	2
-#define OCCLUDEE        2
 #define COLOR	    0
+#define NORMAL		1
+#define TOBLEND    2
 
 const float PI = 3.14159265359;
 const float TWOPI = 6.28318530718;
@@ -17,11 +15,13 @@ uniform float Time;
 uniform sampler2D Diffuse;
 uniform sampler2D Specular;
 uniform float SpecularPower;
-uniform float colorMultiplier = 3.f;
+uniform float ColorMultiplier;
+uniform vec3 PixColor;
+uniform bool UsePixColor;
 
 layout(location = COLOR ) out vec4 Color;
 layout(location = NORMAL) out vec4 Normal;
-layout(location = OCCLUDEE) out vec4 Occludee;
+layout(location = TOBLEND) out vec4 ToBlend;
 
 in block
 {
@@ -43,9 +43,11 @@ void main()
 #endif
 		n = -n;
 		*/
-	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb * colorMultiplier;
+	vec3  diffuseColor = texture(Diffuse, In.Texcoord).rgb * ColorMultiplier;
+	if(UsePixColor)
+	    diffuseColor = PixColor * ColorMultiplier;
 	float specularColor = texture(Specular, In.Texcoord).r;
 	Color = vec4(diffuseColor, specularColor);
-	Occludee = vec4(vec3(0.f), 1.f);
+	ToBlend = vec4(vec3(0.f), 1.f);
 	Normal = vec4( n, SpecularPower);
 }

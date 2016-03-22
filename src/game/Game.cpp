@@ -617,7 +617,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     for (int i = 0; i < spotLightCount; ++i)
     {          
         // Light space matrices
-		glm::mat4 projection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 100.f);
+		glm::mat4 lightProjection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 100.f);
 		glm::mat4 worldToLight = glm::lookAt(spotLights[i].position, spotLights[i].position + spotLights[i].direction, glm::vec3(0.f, 1.f, 0.f));
         //std::cout << glm::to_string(worldToLight) << std::endl;
         // Attach shadow texture for current light
@@ -631,7 +631,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
         glBindVertexArray(vaoManager["cube"]);
 		// Render moving cube
 		glm::mat4 objectToLight = worldToLight * movingCubeModel;
-		glm::mat4 objectToLightScreen = projection * objectToLight;
+		glm::mat4 objectToLightScreen = lightProjection * objectToLight;
 		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
 		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
 		glUniform1i(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "reverse_normal"), 0);
@@ -928,6 +928,10 @@ glClearDepth(1.f);
 		GLboolean horizontal = true, first_iteration = true;
 		amount = amount + (amount % 2);
 		shaderManager["blur"]->use();
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx" + to_string(2 + horizontal)], 0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx" + to_string(2 + !horizontal)], 0);
+		glClear(GL_COLOR_BUFFER_BIT);
 		for (GLuint i = 0; i < amount; i++)
 		{
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx" + to_string(2 + horizontal)], 0);
@@ -1044,7 +1048,7 @@ glClearDepth(1.f);
     // Viewport 
     glViewport( screenWidth/4 * 3, 0, screenWidth/4, screenHeight/4  );
     // Bind texture
-    glBindTexture(GL_TEXTURE_2D, textureManager["fx5"]);
+    glBindTexture(GL_TEXTURE_2D, textureManager["fx3"]);
     // Draw quad
     glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
     shaderManager["blit"]->unuse();
@@ -1054,11 +1058,16 @@ glClearDepth(1.f);
 
 void Game::scene2(Player* p, Skybox* skybox, Times times)
 {
+	if (times.startTime < 1)
+	{
+		times.startTime = glfwGetTime();
+	}
 	//Get needed assets
 	ShaderManager& shaderManager = Manager<ShaderManager>::instance();
 	TextureManager& textureManager = Manager<TextureManager>::instance();
 	VaoManager& vaoManager = Manager<VaoManager>::instance();
 	FboManager& fboManager = Manager<FboManager>::instance();
+	ModelManager& modelManager = Manager<ModelManager>::instance();
 
 	// Scene lights
 	vector < DirectionalLight > dirLights;
@@ -1067,11 +1076,11 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 
 	glm::mat4 projection = glm::perspective(p->getCamera()->getZoom(),
 		(float)screenWidth / (float)screenHeight,
-		0.1f, 1000.0f);
+		0.1f, 100.0f);
 	glm::mat4 view = glm::mat4();
 
 	int instanceCount = 1;
-	int pointLightCount = 0;
+	int pointLightCount = 3;
 	int directionalLightCount = 1;
 	int spotLightCount = 0;
 	p->move(times.deltaTime);
@@ -1096,10 +1105,71 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	};
 	dirLights.push_back(d1);
 
+	PointLight p1 = {
+		glm::vec3( 4.f, 0.f, 0.f ), // position
+		0, //padding
+		glm::vec3(1.f, 0.f, 0.f), //color
+		100.f, //intensity
+	};
+	PointLight p2 = {
+		glm::vec3(-2.f, 0.f, 0.f), // position
+		0, //padding
+		glm::vec3(0.f, 1.f, 0.f), //color
+		100.f, //intensity
+	};
+	PointLight p3 = {
+		glm::vec3(0.f, 0.f, 2.f), // position
+		0, //padding
+		glm::vec3(0.f, 0.f, 1.f), //color
+		100.f, //intensity
+	};
+	pointLights.push_back(p2);
+	pointLights.push_back(p1);
+	pointLights.push_back(p3);
+
 	//Create matrices
 	glm::mat4 worldToView;
-    //p->setPosition(glm::vec3(0.f, 2.f, 0.f));
+	float firstCut = 6.f;
+	float secondCut = 15.f;
+	float thirdCut = 30.f;
+
+	glm::vec3 movingCubePosition;
+	glm::mat4 movingCubeModel;
+#if 0
+	if (times.elapsedTime < firstCut)
+	{
+		p->setPosition(glm::vec3(0.f, 5.f, -20.f));
+		movingCubePosition = glm::vec3(0.f, 18.f - 16.f * (times.elapsedTime / firstCut) , 0.f);
+		movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+	else if (times.elapsedTime < secondCut)
+	{
+		float localTime = times.elapsedTime - firstCut;
+		p->setPosition(glm::vec3(0.f + sin(t * 1000 * 2 * PI), 50.f +sin(t * 1000 * 2 * PI), -60.f));
+		movingCubePosition = glm::vec3(0.f, 2.f + (localTime * 1.f) , 0.f);
+		movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
+		worldToView = p->getCamera()->getViewMatrix( movingCubePosition );
+	}
+	else if (times.elapsedTime < thirdCut)
+	{
+		p->setPosition(glm::vec3(0.f, 50.f, -60.f));
+		movingCubePosition = glm::vec3(0.f, 2.f + ((secondCut - firstCut) * 1.f), 0.f);
+		movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
+		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+	}
+#endif
+#if 1
+	//p->setPosition(glm::vec3(0.f, 5.f, -20.f));
+	movingCubePosition = glm::vec3(0.f, 2.f, 0.f);
+	movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
 	worldToView = p->getCamera()->getViewMatrix();
+#endif
+    movingCubeModel = glm::translate(movingCubeModel, movingCubePosition);
+	movingCubeModel = glm::mat4();
+	//worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+    //p->setPosition(glm::vec3(0.f + sin(t*1000*2*PI), 100.f, 0.f + sin(t*1000*2*PI)));  //Camera shaking for terrain construction
+	//worldToView = p->getCamera()->getViewMatrix();
 	glm::mat4 objectToWorld;
 	glm::mat4 mv = worldToView * objectToWorld;
 	glm::mat4 mvp = projection * mv;
@@ -1107,50 +1177,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 
 	//Render in GBUFFER
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager["gbuffer"]);
-
-#if 0
-	shaderManager["gbuffer"]->use();
-	// Select textures
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, textureManager["brick_spec"]);
-	// Upload uniforms
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "InstanceCount"), (int)instanceCount);
-	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "SpecularPower"), 30.f);
-	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), t);
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Diffuse"), 0);
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Specular"), 1);
-	//Render scene
-	// Render room cube
-	glBindVertexArray(vaoManager["cube"]);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureManager["RoomTex"]);
-	mv = worldToView * roomModel;
-	mvp = projection * mv;
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 1);
-	glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
-	// Render moving cube
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureManager["movingCubeTex"]);
-	mv = worldToView * movingCubeModel;
-	mvp = projection * mv;
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-	glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
-
-
-	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
-	shaderManager["gbuffer"]->unuse();
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glBindVertexArray(0);
-
-	Utils::checkGlError("rendering gbuffer");
-#endif  
-
 #if 1
 	glDisable(GL_CULL_FACE);
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1170,14 +1196,17 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "InstanceCount"), (int)terrainSize);
 	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "SpecularPower"), 100000.f);
 	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "dmap_depth"), 10.f);
-	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), t);
+
+	if (times.elapsedTime < firstCut)
+		glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), 0.f);
+	else if (times.elapsedTime < secondCut)
+		glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), times.elapsedTime - firstCut);
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "tex_displacement"), 0);
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "tex_color"), 1);
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "tex_normal"), 2);
 	//Render scene
 	glBindVertexArray(vaoManager["terrain"]);
-	glDrawArraysInstanced(GL_PATCHES, 0, 4, terrainSize * terrainSize);
-
+	//glDrawArraysInstanced(GL_PATCHES, 0, 4, terrainSize * terrainSize);
 	shaderManager["gbuffer"]->use();
 	// Select textures
 	glActiveTexture(GL_TEXTURE1);
@@ -1190,35 +1219,62 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), t);
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Diffuse"), 0);
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Specular"), 1);
+	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 0);
+	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "ColorMultiplier"), 1.f);
 	//Render scene
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
+	Utils::checkGlError("rendering gbuffer");
 	// Render moving cube
 	glBindVertexArray(vaoManager["cube"]);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureManager["movingCubeTex"]);
-	mv = worldToView;
+	mv = worldToView * movingCubeModel;
 	mvp = projection * mv;
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
 	glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+	mv = worldToView;
+	mvp = projection * mv;
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+	Utils::checkGlError("rendering gbuffer");
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureManager["brick_diff"]);
+	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
 	glBindVertexArray(vaoManager["plane"]);
 	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-
+	Utils::checkGlError("rendering gbuffer");
+	for (int i = 0; i < pointLightCount; ++i)
+	{
+		glm::mat4 m = glm::translate(glm::mat4(), pointLights[i].position);
+		m = glm::scale(m, glm::vec3(0.2f, 0.2f, 0.2f));
+		mv = worldToView * m;
+		mvp = projection * mv;
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+		glUniform3fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "PixColor"), 1, &pointLights[i].color[0]);
+		glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "ColorMultiplier"), 3.f);
+		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 1);
+		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 1);
+		modelManager["sphere"]->Draw(shaderManager["gbuffer"]);
+	}
+	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 0);
 	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
+	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
 	shaderManager["gbuffer"]->unuse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindVertexArray(0);
+	mv = worldToView ;
+	mvp = projection * mv;
 
 	Utils::checkGlError("rendering gbuffer");
-
-	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), 0.f);
-	shaderManager["terrain"]->unuse();
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindVertexArray(0);
 	glEnable(GL_CULL_FACE);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
-	Utils::checkGlError("rendering gbuffer");
+	
 	// Shadow passes
 
 #if 1
@@ -1235,9 +1291,9 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 
 	for (int i = 0; i < directionalLightCount; ++i)
 	{
-		glm::vec3 lp = -dirLights[i].direction;
+		glm::vec3 lp = -dirLights[i].direction * 10.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-50.f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
@@ -1248,16 +1304,20 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureManager["shadow" + to_string(i)], 0);
 		// Clear only the depth buffer
 		glClear(GL_DEPTH_BUFFER_BIT);
-
+		Utils::checkGlError("rendering shadowmap");
+		// Render the scene
+		glBindVertexArray(vaoManager["cube"]);
+		mv = worldToView * movingCubeModel;
+		mvp = projection * mv;
+		objectToWorld = movingCubeModel;
+		objectToLight = worldToLight * objectToWorld;
+		objectToLightScreen = lightProjection * objectToLight;
 		// Update scene uniforms
 		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
 		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
-		Utils::checkGlError("rendering shadowmap");
-		// Render the scene
-		// Render room cube
-		glBindVertexArray(vaoManager["cube"]);
-		glm::mat4 m = glm::mat4();
 		glUniform1i(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "reverse_normal"), 0);
+		glBindVertexArray(vaoManager["cube"]);
+		glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
 		shaderManager["shadow"]->unuse();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glBindVertexArray(0);
@@ -1266,8 +1326,60 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	mv = worldToView;
+	mvp = projection * mv;
 
 	Utils::checkGlError("rendering shadowmap");
+#endif
+
+#if 1
+	// Bind the shadow FBO
+	glBindFramebuffer(GL_FRAMEBUFFER, fboManager["plShadow"]);
+	// Use shadow program
+	shaderManager["plShadow"]->use();
+	glViewport(0, 0, 1024, 1024);
+	glEnable(GL_DEPTH_TEST);
+	//glClearDepth(0.5f);
+
+	for (int i = 0; i < pointLightCount; ++i)
+	{
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow" + to_string(i)], 0);
+		glm::vec3 lp = glm::vec3(worldToView * glm::vec4(pointLights[i].position,1.f));
+		// Light space matrices
+		glm::mat4 lightProjection = glm::perspective(glm::radians(90.f), 1.f, 1.f, 100.f);
+
+		std::vector<glm::mat4> worldToLight;
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+		worldToLight.push_back(lightProjection * glm::lookAt(lp, lp + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+
+		glm::mat4 objectToWorld = worldToView;
+
+		// Attach shadow texture for current light
+		// glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, textureManager["plShadow"], 0);
+		// Clear only the depth buffer
+		glClear(GL_DEPTH_BUFFER_BIT);
+		// Update scene uniforms
+		for (GLuint i = 0; i < 6; ++i)
+			glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), ("shadowMatrices[" + to_string(i) + "]").c_str()), 1, GL_FALSE, glm::value_ptr(worldToLight[i]));
+		glUniform3fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "lightPos"), 1, &lp[0]);
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "model"), 1, GL_FALSE, glm::value_ptr(objectToWorld));
+		// Render the scene
+		glBindVertexArray(vaoManager["cube"]);
+		glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int)instanceCount);
+		glBindVertexArray(vaoManager["plane"]);
+		glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+
+	}
+	//glClear(GL_DEPTH_BUFFER_BIT);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindVertexArray(0);
+
+	glClearDepth(1.f);
 #endif
 
 	//Render lighting in postfx fbo
@@ -1304,15 +1416,15 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	{
 		glBindTexture(GL_TEXTURE_2D, textureManager["shadow" + to_string(i)]);
 		glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
-		glm::vec3 lp = glm::vec3(worldToView * glm::vec4(-dirLights[i].direction, 0.f));
+		glm::vec3 lp = -dirLights[i].direction * 10.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-50.f, 50.0f, -50.0f, 50.0f, 0.1f, 100.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.0f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
 		glm::mat4 objectToLightScreen = lightProjection * objectToLight;
 
-		dirLights[i].direction = glm::vec3(worldToView * glm::vec4(dirLights[i].direction,0.f));
+		dirLights[i].direction = glm::vec3(worldToView * glm::vec4(dirLights[i].direction, 0.f));
 		dirLights[i].worldToLightScreen = objectToLightScreen * glm::inverse(worldToView);
 		DirectionalLight * directionalLightBuffer = (DirectionalLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
 		*directionalLightBuffer = dirLights[i];
@@ -1322,6 +1434,31 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	}
 	shaderManager["dirLight"]->unuse();
 #endif
+#if 1
+	// Render point lights
+	shaderManager["pointLight"]->use();
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "InverseProjection"), 1, 0, glm::value_ptr(inverseProjection));
+	glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "ColorBuffer"), 0);
+	glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "NormalBuffer"), 1);
+	glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "DepthBuffer"), 2);
+	glUniform1i(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "Shadow"), 3);
+	glUniform1f(glGetUniformLocation(shaderManager["pointLight"]->getProgram(), "farPlane"), 100.f);
+
+	glActiveTexture(GL_TEXTURE3);
+	for (int i = 0; i < pointLightCount; ++i)
+	{
+		glBindTexture(GL_TEXTURE_CUBE_MAP, textureManager["plShadow" + to_string(i)]);
+		glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
+		pointLights[i].position = glm::vec3(worldToView * glm::vec4(pointLights[i].position, 1.f));
+		PointLight * pointLightBuffer = (PointLight *)glMapBufferRange(GL_UNIFORM_BUFFER, 0, 512, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+		*pointLightBuffer = pointLights[i];
+		glUnmapBuffer(GL_UNIFORM_BUFFER);
+		glBindBufferBase(GL_UNIFORM_BUFFER, glGetUniformBlockIndex(shaderManager["pointLight"]->getProgram(), "light"), fboManager["ubo"]);
+		glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+	}
+	shaderManager["pointLight"]->unuse();
+#endif
+
 	Utils::checkGlError("poiintlight");
 
 	// Draw skybox as last
@@ -1331,15 +1468,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	sunNDC *= 0.5;
 	view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
 	skybox->display(view, projection, textureManager["gBufferDepth"], screenWidth, screenHeight);
-#if 0
-	shaderManager["sun"]->use();
-	//glUniform1i(glGetUniformLocation(shaderManager["sun"]->getProgram(), "Depth"), 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
-	glUniform3fv(glGetUniformLocation(shaderManager["sun"]->getProgram(), "sun"), 1, &sunNDC[0]);
-	glBindVertexArray(vaoManager["quad"]);
-	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-#endif
 	//Render sun with occludee in black for light shaft postFX
 	shaderManager["sun"]->use();
 	glBindFramebuffer(GL_FRAMEBUFFER, fboManager["fx"]);
@@ -1365,7 +1493,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
 	glBindVertexArray(vaoManager["quad"]);
 	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
-	glClear(GL_COLOR_BUFFER_BIT);
 	shaderManager["bright"]->unuse();
 
 	int amount = 10.f;
@@ -1401,28 +1528,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	shaderManager["bloom"]->unuse();
 	Utils::checkGlError("bloom");
 #endif
-
-#if 0
-	shaderManager["ssr"]->use();
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureManager["fx3"], 0);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureManager["gBufferColor"]);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, textureManager["gBufferNormals"]);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, textureManager["gBufferDepth"]);
-	glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "ColorBuffer"), 0);
-	glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "NormalBuffer"), 1);
-	glUniform1i(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "DepthBuffer"), 2);
-
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "proj"), 1, GL_FALSE, glm::value_ptr(projection));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["ssr"]->getProgram(), "InverseProjection"), 1, GL_FALSE, glm::value_ptr(inverseProjection));
-	glBindVertexArray(vaoManager["quad"]);
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-	shaderManager["ssr"]->unuse();
-#endif
-
 
 #if 1
 	shaderManager["lightShaft"]->use();
@@ -1489,7 +1594,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	// Viewport 
 	glViewport(screenWidth / 4 * 3, 0, screenWidth / 4, screenHeight / 4);
 	// Bind texture
-	glBindTexture(GL_TEXTURE_2D, textureManager["terrainNormal"]);
+	glBindTexture(GL_TEXTURE_2D, textureManager["fx5"]);
 	// Draw quad
 	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 	shaderManager["blit"]->unuse();
@@ -1608,6 +1713,7 @@ void Game::loadShaders()
 void Game::loadGeometry()
 {
     VaoManager& vaoManager = Manager<VaoManager>::instance();
+	ModelManager& modelManager = Manager<ModelManager>::instance();
     // Load geometry
     int cube_triangleCount = 12;
     int cube_triangleList[] = {0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 19, 17, 20, 21, 22, 23, 24, 25, 26, };
@@ -1692,6 +1798,10 @@ void Game::loadGeometry()
     vaoManager.getManaged().insert( pair<string, VAO>("plane", {vao[1]}));
     vaoManager.getManaged().insert( pair<string, VAO>("quad", {vao[2]}));  
 	vaoManager.getManaged().insert(pair<string, VAO>("terrain", { terrainVAO }));
+	Utils::checkGlError("terrainNormal0");
+	Model* sphere = new Model("assets/sphere.nff");
+	modelManager.getManaged().insert(pair<string, Model*>("sphere", sphere));
+	Utils::checkGlError("terrainNormal0");
 }
 
 void Game::initGbuffer()
@@ -1839,30 +1949,33 @@ void Game::initShadows()
     glBindTexture(GL_TEXTURE_2D, 0);
 
     //Omnidirectional Shadow
-    GLuint plShadowFBO;
-    glGenFramebuffers(1, &plShadowFBO);
-    GLuint plShadowTex;
-    glGenTextures(1, &plShadowTex);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, plShadowTex);
-    for (GLuint i = 0; i < 6; ++i )
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0); 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0); 
-    textureManager.getManaged().insert(pair<string, Tex>( "plShadow", {plShadowTex}));
-    glBindFramebuffer(GL_FRAMEBUFFER, plShadowFBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, plShadowTex, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    if ( glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE )
-        std::cout << "Error shadow fbo" << std::endl;
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    fboManager.getManaged().insert(pair<string, FBO>("plShadow", {plShadowFBO}));
+	GLuint plShadowFBO;
+	glGenFramebuffers(1, &plShadowFBO);
+	for (int i = 0; i < 10; ++i)
+	{
+		GLuint plShadowTex;
+		glGenTextures(1, &plShadowTex);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, plShadowTex);
+		for (GLuint i = 0; i < 6; ++i)
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, TEX_SIZE, TEX_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+		textureManager.getManaged().insert(pair<string, Tex>("plShadow" + to_string(i), { plShadowTex }));
+		glBindFramebuffer(GL_FRAMEBUFFER, plShadowFBO);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, plShadowTex, 0);
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "Error shadow fbo" << std::endl;
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+	fboManager.getManaged().insert(pair<string, FBO>("plShadow" , { plShadowFBO }));
 
 
 }
@@ -1939,8 +2052,8 @@ void Game::loadAssets()
 	glGenerateMipmap(GL_TEXTURE_2D);
 	fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
 	glBindTexture(GL_TEXTURE_2D, 0);
-
-	unsigned char * heightMap = stbi_load("assets/textures/Heightmap.jpg", &x, &y, &comp, 3);
+	
+	unsigned char * heightMap = stbi_load("assets/textures/HM_test.jpg", &x, &y, &comp, 3);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textures[4]);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, heightMap);
@@ -1953,6 +2066,7 @@ void Game::loadAssets()
 	glBindTexture(GL_TEXTURE_2D, 0);
 	textureManager.getManaged().insert(pair<string, Tex>("heightMap", { textures[4] }));
 
+	
 	//Compute normal maps from heightMap
 	GLuint normalTex;
 	glGenTextures(1, &normalTex);

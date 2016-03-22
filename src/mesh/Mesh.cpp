@@ -23,7 +23,7 @@ Mesh::Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> text
 }
 
 // Render the mesh
-void Mesh::Draw(Shader shader) 
+void Mesh::Draw(Shader* shader) 
 {
     // Bind appropriate textures
     GLuint diffuseNr = 1;
@@ -44,13 +44,13 @@ void Mesh::Draw(Shader shader)
             ss << normalNr++;
         number = ss.str(); 
         // Now set the sampler to the correct texture unit
-        glUniform1i(glGetUniformLocation(shader.getProgram(), std::string("material." + (name + number)).c_str()), i);
+        glUniform1i(glGetUniformLocation(shader->getProgram(), std::string("material." + (name + number)).c_str()), i);
         // And finally bind the texture
         glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
     }
         
     // Also set each mesh's shininess property to a default value (if you want you could extend this to another mesh property and possibly change this value)
-    glUniform1f(glGetUniformLocation(shader.getProgram(), "material.shininess"), 16.0f);
+    glUniform1f(glGetUniformLocation(shader->getProgram(), "material.shininess"), 16.0f);
 
     // Draw mesh
     glBindVertexArray(this->VAO);
@@ -85,7 +85,6 @@ void Mesh::setupMesh()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->indices.size() * sizeof(GLuint), &this->indices[0], GL_STATIC_DRAW);
-
     // Set the vertex attribute pointers
     // Vertex Positions
     glEnableVertexAttribArray(0);   
@@ -96,6 +95,9 @@ void Mesh::setupMesh()
     // Vertex Texture Coords
     glEnableVertexAttribArray(2);   
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, TexCoords));
+	glBindVertexArray(0);
+	Utils::checkGlError("terrainNormal0");
+#if 0
     // Vertex Tangent Space
     glEnableVertexAttribArray(3);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Tangent));
@@ -104,6 +106,8 @@ void Mesh::setupMesh()
     glEnableVertexAttribArray(4);
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Bitangent));
     glBindVertexArray(0);
+#endif
+	
     
 }
 
