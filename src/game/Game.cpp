@@ -9,6 +9,168 @@
 #include "Game.h"
 #define PI 3.14159265359f
 
+/* Data for Flag */
+#define NbmLigne 20 /* Nombre de masses presentent sur une ligne */
+#define NbmColonne 10 /* Nombre de masses presentent sur une colonne */
+#define Nbm NbmLigne*NbmColonne    /* 4 pts fixes, 16 masses libres */
+
+#define NbLiaisonLigne  Nbm-(NbmColonne-1)   /* Liaisons ligne + 1 gravité       */
+#define NbLiaisonColonne NbmLigne*(NbmColonne-1)
+
+#define Nbl NbLiaisonLigne+NbLiaisonColonne
+
+#define Fe  50
+
+/*double xmin=-10.,ymin=-5.,xmax=+10.,ymax=+5.;*/
+
+/* simulation time step */
+double h  = 1./Fe;
+
+double k = 0.5*(Fe*Fe);	/* paramétrage "par défaut" : 0.01*Fe² < k < Fe² */
+
+G3Xvector windForce = {2,0,0};
+
+double gravity = 1;
+
+PMat *tabM=NULL;
+Link *tabL=NULL;
+
+/* end data for flag */
+
+void Game::createFlag(void){	
+	
+	tabM = (PMat*)calloc(Nbm ,sizeof(PMat));	
+	tabL = (Link*)calloc(Nbl ,sizeof(Link));
+	
+	PMat *m, *mStart;
+	Link *l, *lStart;
+	
+	
+	/*float dx   = (xmax-xmin)/(NbmLigne+1);
+	float dy   = (ymax-ymin)/(NbmColonne+1);*/
+	
+	G3Xpoint pos;
+	G3Xvector vit;
+	
+	vit[0] = 0;
+	vit[1] = 0;
+	vit[2] = 0;
+	
+	float xPos = 3.;
+	float yPos = 1.;
+	float zPos = 3.;
+	
+	m = tabM;
+	l = tabL;
+	
+	int colonne = 0;
+	
+	for(colonne ; colonne < NbmColonne ; colonne++){
+		xPos = 0.;
+		/*yPos = colonne * dy; pas certains */
+		yPos +=0.07;
+		
+		mStart = m; /* on garde un pointeur sur notre premiere masse sur la ligne */
+		
+		pos[0] = xPos;
+		pos[1] = yPos;
+		pos[2] = zPos;
+		pointFixe(m, pos);	
+		m++;
+		
+		for(m ; m < mStart+NbmLigne ; m++) /* creation des points */
+		{
+			/*xPos+=dx;*/
+			xPos+=0.07;		
+			pos[0] = xPos;
+			pos[1] = yPos;
+			pos[2] = zPos;
+			
+			pointMobile(m, pos, vit, 1);
+		}	
+		/*xPos+=dx;
+		pointFixe(m, (G2Xpoint) {xPos,yPos});	 creation du dernier point de la ligne */
+
+		m = mStart; /* on repart de notre première masse sur la ligne correspondante */
+		lStart = l;
+		
+		for(l ; l < lStart+NbmLigne-1 ; l++) /* creation des liaisons sur cette ligne */
+		{
+			ressort(l, k);
+			connectL(m,l,m+1);
+			m++;
+		}
+		m++; /* "saut de ligne", cette masse sera donc fixe grace a l'appel de la methode pointFixe() l. 59 */
+	}
+	
+	/** on repart de la premiere masse pour realiser les liaisons colonnes **/
+	m = tabM;
+	mStart = m;
+	for(m ; m < mStart + Nbm - NbmLigne ; m++){
+			ressort(l, k);
+			connectL(m,l,m+NbmLigne);
+			l++;				
+	}
+	
+	/** on repart de la premiere masse pour realiser les liaisons arc LIGNES **/
+/*	m = tabM;
+	colonne = 0;
+	
+	for(colonne=0 ; colonne < NbmColonne ; colonne++){
+		m = tabM + (colonne*NbmLigne);
+		mStart = m;
+		
+		for(m = mStart ; m < mStart + NbmLigne - 2 ; m++){
+			ressort(l, k);
+			connectL(m,l,m+2);
+			l++;				
+		}
+	}
+	
+	/** laisons arc COLONNES **/
+	
+/*	for(m = tabM ; m < ((tabM + Nbm )- (2 * NbmLigne)) ; m++){
+			ressort(l, k);	
+			connectL(m,l, (m+(2*NbmLigne)) );
+			l++;					
+	}
+	
+	
+	/* la dernière :  la gravité */
+    double g=-0.1;
+	gravite(l,g);
+	connectL(tabM+1,l,tabM+Nbm-2);
+}
+
+void Game::animFlag(){
+	Link *l = tabL;		
+	while(l < tabL + Nbl){ l->algo(l); l++; }
+	PMat* m = tabM;		
+	
+	int cpt = 0;
+	
+	while(m < tabM + Nbm){		
+		m->frc[0] += windForce[0];
+		m->frc[2] += windForce[2];
+		m->algo(m);
+		/*m->frc[2] += -gravity;*/		
+		m++;
+	}
+	
+/*	if(FLAG_CUBE){
+		computeCollisions();
+	}
+	if(FLAG_FACETTE){
+		computeCollisionsFacette();
+	}
+	
+	m = tabM;	
+	while(m < tabM + Nbm){
+		m->algo(m);
+		m++;
+	}*/
+}
+
 using namespace std;
 
 Game::Game(int width, int height) : screenWidth(width),
@@ -1062,6 +1224,9 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	{
 		times.startTime = glfwGetTime();
 	}
+	
+	animFlag();
+	
 	//Get needed assets
 	ShaderManager& shaderManager = Manager<ShaderManager>::instance();
 	TextureManager& textureManager = Manager<TextureManager>::instance();
@@ -1230,9 +1395,9 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glBindTexture(GL_TEXTURE_2D, textureManager["movingCubeTex"]);
 	mv = worldToView * movingCubeModel;
 	mvp = projection * mv;
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
-	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
-	glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+	//~ glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+	//~ glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+	//~ glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
 	mv = worldToView;
 	mvp = projection * mv;
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
@@ -1260,7 +1425,32 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	}
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 0);
 	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
-	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
+	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);	
+	
+		/** FLAG **/
+	PMat *pmat = tabM;
+	glm::vec3 positionPointFlag, colorPointFlag;
+	
+	while(pmat < tabM + Nbm){
+		positionPointFlag = glm::vec3(pmat->pos[0],pmat->pos[1],pmat->pos[2]);
+		glm::mat4 m = glm::translate(glm::mat4(), positionPointFlag);
+		m = glm::scale(m, glm::vec3(0.07f, 0.07f, 0.07f));
+		mv = worldToView * m;
+		mvp = projection * mv;
+		//~ colorPointFlag = glm::vec3(0.3,0.4,0.7);
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+		//~ glUniform3fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "PixColor"), 1, colorPointFlag);
+		glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "ColorMultiplier"), 3.f);
+		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 1);
+		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 1);
+		modelManager["sphere"]->Draw(shaderManager["gbuffer"]);
+		
+		pmat++;
+	}
+	
+	/** end flag **/
+	
 	shaderManager["gbuffer"]->unuse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindVertexArray(0);
@@ -2158,6 +2348,8 @@ int Game::mainLoop()
       .     */
     Player* p = new Player();
     p->setPosition(glm::vec3(0.f, 2.f, 0.f));
+    
+    createFlag();
     
     glfwSetKeyCallback( window, key_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);

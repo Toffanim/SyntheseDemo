@@ -21,8 +21,8 @@ public :
            GLfloat yaw = 90.0f, GLfloat pitch = 0.0f);
 
     glm::mat4 getViewMatrix();
-	glm::mat4 Camera::getViewMatrix(glm::vec3 focus_position);
-	glm::mat4 Camera::getViewMatrix(glm::vec3 focus_position, glm::vec3 up_bias);
+	glm::mat4 getViewMatrix(glm::vec3 focus_position);
+	glm::mat4 getViewMatrix(glm::vec3 focus_position, glm::vec3 up_bias);
     glm::mat4 getRotatedViewMatrix();
     GLfloat getZoom() { return(zoom); }
     void setPosition( glm::vec3 newPos ) { position = newPos; }
