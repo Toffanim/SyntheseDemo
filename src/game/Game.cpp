@@ -1429,7 +1429,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	}
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 0);
 	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
-<<<<<<< HEAD
+
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
 	mv = worldToView * glm::scale( glm::rotate(glm::mat4(), -PI/2, glm::vec3(1.0,0.0,0.0)), glm::vec3(0.1,0.1,0.1));
 	mvp = projection * mv;
@@ -1437,7 +1437,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
 	modelManager["tree"]->Draw(shaderManager["gbuffer"]);
 	glActiveTexture(GL_TEXTURE0);
-=======
+
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);	
 	
 		/** FLAG **/
@@ -1463,8 +1463,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	}
 	
 	/** end flag **/
-	
->>>>>>> origin/master
+
 	shaderManager["gbuffer"]->unuse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindVertexArray(0);

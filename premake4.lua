@@ -5,7 +5,7 @@ solution "aogl"
    project "demo"
       kind "ConsoleApp"
       language "C++"
-      files { "src/**.cpp"}
+      files { "src/**.cpp" }
       includedirs { "lib/glfw/include", "src", "common", "lib/" }
       links {"imgui", "glfw", "glew", "stb"}
       defines { "GLEW_STATIC" }
