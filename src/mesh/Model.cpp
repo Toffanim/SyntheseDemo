@@ -186,7 +186,23 @@ vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type,
             if(!skip)
             {   // If texture hasn't been loaded already, load it
                 Texture texture;
-                //texture.id = Utils::TextureFromFile(str.C_Str(), this->directory);
+
+				GLuint texture_id;
+				glGenTextures(1, &texture_id);
+				int x, y, comp;
+				unsigned char * diffuse = stbi_load( (this->directory + "/" + std::string(str.C_Str())).c_str(), &x, &y, &comp, 3);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, texture_id);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, diffuse);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glGenerateMipmap(GL_TEXTURE_2D);
+				fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
+                texture.id = texture_id;
                 texture.type = typeName;
                 texture.path = str;
                 textures.push_back(texture);

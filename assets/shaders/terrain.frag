@@ -17,6 +17,8 @@ uniform float Time;
 uniform sampler2D Diffuse;
 uniform sampler2D Specular;
 uniform float SpecularPower;
+uniform vec3 PixColor;
+uniform bool UsePixColor;
 
 layout(location = COLOR ) out vec4 Color;
 layout(location = NORMAL) out vec4 Normal;
@@ -36,6 +38,8 @@ void main(void)
 {
     vec3 n = normalize(fs_in.CameraSpaceNormal);
     Color = texture(tex_color, fs_in.tc);
+	if(UsePixColor)
+	    Color = vec4(PixColor, 1.0);
 	Normal = vec4( n, SpecularPower);
 	//Color = Normal;
 }

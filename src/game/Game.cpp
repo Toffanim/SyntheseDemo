@@ -1061,6 +1061,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	if (times.startTime < 1)
 	{
 		times.startTime = glfwGetTime();
+		//times.elapsedTime = 0.f;
 	}
 	//Get needed assets
 	ShaderManager& shaderManager = Manager<ShaderManager>::instance();
@@ -1109,19 +1110,19 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glm::vec3( 2.f, 2.f, 0.f ), // position
 		0, //padding
 		glm::vec3(1.f, 0.f, 0.f), //color
-		100.f, //intensity
+		50.f, //intensity
 	};
 	PointLight p2 = {
 		glm::vec3(-2.f, 0.f, 0.f), // position
 		0, //padding
 		glm::vec3(0.f, 1.f, 0.f), //color
-		100.f, //intensity
+		50.f, //intensity
 	};
 	PointLight p3 = {
 		glm::vec3(0.f, 0.f, 2.f), // position
 		0, //padding
 		glm::vec3(0.f, 0.f, 1.f), //color
-		100.f, //intensity
+		50.f, //intensity
 	};
 	pointLights.push_back(p2);
 	pointLights.push_back(p1);
@@ -1166,7 +1167,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	worldToView = p->getCamera()->getViewMatrix();
 #endif
     movingCubeModel = glm::translate(movingCubeModel, movingCubePosition);
-	movingCubeModel = glm::mat4();
+	//movingCubeModel = glm::mat4();
 	//worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
     //p->setPosition(glm::vec3(0.f + sin(t*1000*2*PI), 100.f, 0.f + sin(t*1000*2*PI)));  //Camera shaking for terrain construction
 	//worldToView = p->getCamera()->getViewMatrix();
@@ -1191,6 +1192,10 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, textureManager["terrainNormal"]);
 	// Upload uniforms
+	glm::vec3 terrainColor = glm::vec3(0.5, 1.0, 0.0);
+	glUniform3fv(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "PixColor"), 1, &terrainColor[0]);
+	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "ColorMultiplier"), 3.f);
+	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "UsePixColor"), 1);
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "mvp"), 1, GL_FALSE, glm::value_ptr(mvp));
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "mv"), 1, GL_FALSE, glm::value_ptr(mv));
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "InstanceCount"), (int)terrainSize);
@@ -1206,7 +1211,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniform1i(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "tex_normal"), 2);
 	//Render scene
 	glBindVertexArray(vaoManager["terrain"]);
-	//glDrawArraysInstanced(GL_PATCHES, 0, 4, terrainSize * terrainSize);
+	glDrawArraysInstanced(GL_PATCHES, 0, 4, terrainSize * terrainSize);
 	shaderManager["gbuffer"]->use();
 	// Select textures
 	glActiveTexture(GL_TEXTURE1);
@@ -1241,7 +1246,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textureManager["brick_diff"]);
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
-	glBindVertexArray(vaoManager["plane"]);
 	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 	Utils::checkGlError("rendering gbuffer");
 	for (int i = 0; i < pointLightCount; ++i)
@@ -1261,6 +1265,12 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 0);
 	glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "Time"), 0.f);
 	glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 0);
+	mv = worldToView * glm::scale( glm::rotate(glm::mat4(), -PI/2, glm::vec3(1.0,0.0,0.0)), glm::vec3(0.1,0.1,0.1));
+	mvp = projection * mv;
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+	modelManager["tree"]->Draw(shaderManager["gbuffer"]);
+	glActiveTexture(GL_TEXTURE0);
 	shaderManager["gbuffer"]->unuse();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindVertexArray(0);
@@ -1370,8 +1380,6 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		// Render the scene
 		glBindVertexArray(vaoManager["cube"]);
 		glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int)instanceCount);
-		glBindVertexArray(vaoManager["plane"]);
-		glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 
 	}
 	//glClear(GL_DEPTH_BUFFER_BIT);
@@ -1801,6 +1809,11 @@ void Game::loadGeometry()
 	Utils::checkGlError("terrainNormal0");
 	Model* sphere = new Model("assets/sphere.nff");
 	modelManager.getManaged().insert(pair<string, Model*>("sphere", sphere));
+
+#if 1
+	Model* tree = new Model("assets/models/palm/Tree.FBX");
+	modelManager.getManaged().insert(pair<string, Model*>("tree", tree));
+#endif
 	Utils::checkGlError("terrainNormal0");
 }
 
@@ -2196,8 +2209,21 @@ int Game::mainLoop()
         t.elapsedTime = t.globalTime - t.startTime;
         t.deltaTime = t.globalTime - t.previousTime;
         t.previousTime = t.globalTime;
-        //scene1(p, skybox, t);
-		scene2( p, skybox, t);
+		scene2(p, skybox, t);
+
+#if 0
+		if ( t.globalTime < 35.f)
+            scene1(p, skybox, t);
+		else
+		{
+			if (t.startTime < 1)
+			{
+				t.startTime = t.globalTime;
+				t.elapsedTime = 0.f;
+			}
+			scene2(p, skybox, t);
+		}
+#endif
 #if 0
         ImGui::SetNextWindowSize(ImVec2(200,100), ImGuiSetCond_FirstUseEver);
         ImGui::Begin("aogl");

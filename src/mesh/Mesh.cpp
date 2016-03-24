@@ -36,21 +36,27 @@ void Mesh::Draw(Shader* shader)
         stringstream ss;
         string number;
         string name = this->textures[i].type;
-        if(name == "texture_diffuse")
-            ss << diffuseNr++; // Transfer GLuint to stream
-        else if(name == "texture_specular")
-            ss << specularNr++; // Transfer GLuint to stream
+		if (name == "texture_diffuse")
+		{
+			ss << diffuseNr++; // Transfer GLuint to stream
+			glUniform1i(glGetUniformLocation(shader->getProgram(), "Diffuse"), i);
+		}
+		else if (name == "texture_specular")
+		{
+			ss << specularNr++; // Transfer GLuint to stream
+			glUniform1i(glGetUniformLocation(shader->getProgram(), "Specular"), i);
+		}
         else if(name == "texture_normal")
             ss << normalNr++;
         number = ss.str(); 
         // Now set the sampler to the correct texture unit
-        glUniform1i(glGetUniformLocation(shader->getProgram(), std::string("material." + (name + number)).c_str()), i);
+        //glUniform1i(glGetUniformLocation(shader->getProgram(), std::string("material." + (name + number)).c_str()), i);
         // And finally bind the texture
         glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
     }
         
     // Also set each mesh's shininess property to a default value (if you want you could extend this to another mesh property and possibly change this value)
-    glUniform1f(glGetUniformLocation(shader->getProgram(), "material.shininess"), 16.0f);
+    //glUniform1f(glGetUniformLocation(shader->getProgram(), "material.shininess"), 16.0f);
 
     // Draw mesh
     glBindVertexArray(this->VAO);
