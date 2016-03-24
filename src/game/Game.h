@@ -32,6 +32,8 @@
 #include "imgui/imgui_impl_glfw_gl3.h"
 #include "../skybox/Skybox.h"
 #include "../postFX/PostFX.h"
+#include "../PMat/pmat.h"
+#include "../Link/link.h"
 
 struct room
 {
@@ -65,6 +67,8 @@ public :
     void drawScene( );
     void scene1(Player* p, Skybox* skybox, Times times);
 	void scene2(Player* p, Skybox* skybox, Times times);
+	void createFlag();
+	void animFlag();
     
 private :
     GLFWwindow* window;
