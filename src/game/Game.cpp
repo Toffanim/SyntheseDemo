@@ -1826,6 +1826,24 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 #endif
 }
 
+void Game::scene3()
+{
+	ShaderManager& shaderManager = Manager<ShaderManager>::instance();
+	VaoManager& vaoManager = Manager<VaoManager>::instance();
+	TextureManager& textureManager = Manager<TextureManager>::instance();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	shaderManager["blit"]->use();
+	glActiveTexture(GL_TEXTURE0);
+	glBindVertexArray(vaoManager["quad"]);
+	// Viewport 
+	glViewport(0, 0, screenWidth, screenHeight);
+	// Bind texture
+	glBindTexture(GL_TEXTURE_2D, textureManager["FinalTex"]);
+	// Draw quad
+	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
+	shaderManager["blit"]->unuse();
+}
+
 void Game::loadShaders()
 {
     ShaderManager& shaderManager = Manager<ShaderManager>::instance();
@@ -2241,7 +2259,7 @@ void Game::loadAssets()
     initShadows();
 
     // Load images and upload textures
-	const int nb_tex = 5;
+	const int nb_tex = 6;
     GLuint textures[nb_tex];
     glGenTextures(nb_tex, textures);
     int x;
@@ -2288,6 +2306,18 @@ void Game::loadAssets()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, textures[3]);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, RoomTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	fprintf(stderr, "Diffuse %dx%d:%d\n", x, y, comp);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	unsigned char * FinalTex = stbi_load("assets/textures/final.png", &x, &y, &comp, 3);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textures[5]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, FinalTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -2363,6 +2393,7 @@ void Game::loadAssets()
     textureManager.getManaged().insert( pair<string, Tex>( "brick_spec", {textures[1]}));
 	textureManager.getManaged().insert(pair<string, Tex>("movingCubeTex", { textures[2] }));
 	textureManager.getManaged().insert(pair<string, Tex>("RoomTex", { textures[3] }));
+	textureManager.getManaged().insert(pair<string, Tex>("FinalTex", { textures[5] }));
 	
 
     //create UBO
@@ -2444,7 +2475,7 @@ int Game::mainLoop()
 		}
 		else
 		{
-		    // print names
+			scene3();
 		}
 #endif
 #if 0

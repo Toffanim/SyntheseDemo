@@ -67,6 +67,7 @@ public :
     void drawScene( );
     void scene1(Player* p, Skybox* skybox, Times times);
 	void scene2(Player* p, Skybox* skybox, Times times);
+	void scene3();
 	void createFlag();
 	void animFlag();
     
