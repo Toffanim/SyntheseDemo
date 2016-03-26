@@ -497,8 +497,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 	float firstCut = 5.f;
 	float secondCut = 8.f;
 	float thirdCut = 9.f;
-	float forthCut = 20.f;
-	float fifthCut = 30.f;
+	float forthCut = 21.f;
+	float fifthCut = 33.f;
 	float sixthCut = 40.f;
 
 
@@ -531,6 +531,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 	int roomSize = 20;
 	glm::vec3 movingCubePosition; 
 	glm::mat4 worldToView;
+#if 1
 	if (times.elapsedTime < firstCut)
 	{
 		movingCubePosition = glm::vec3(0.f, 1.f, 0.f);
@@ -544,8 +545,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 		float diff = secondCut - firstCut;
 		float z = 1.f * (localTime / diff );
 		movingCubePosition = glm::vec3(0.f, 1.f + z, 0.f);
-		float x = (roomSize / 2.f) * sin((localTime / diff) * 2 * PI);
-		float y = (roomSize / 2.f) * cos((localTime / diff) * 2 * PI);
+		float x = ((roomSize) / 2.f) * sin((localTime / diff) * 2 * PI);
+		float y = ((roomSize) / 2.f) * cos((localTime / diff) * 2 * PI);
 		p->setPosition(glm::vec3(x, 2.f, y));
 		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
 	}
@@ -562,8 +563,8 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 	else if (times.elapsedTime < forthCut)
 	{
 		float localTime = times.elapsedTime - thirdCut;
-		float x = min(9.f, (localTime)) * sin(t);
-		float y = min(9.f, (localTime)) * cos(t);
+		float x = min(8.f, (localTime)) * sin(t);
+		float y = min(8.f, (localTime)) * cos(t);
 		movingCubePosition = glm::vec3(x, 2.f + abs(x * 2), y);
 		p->setPosition(glm::vec3(0.f, (roomSize / 2.f), 0.f));
 		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
@@ -575,6 +576,13 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
 		p->setPosition(glm::vec3(0.f, (roomSize / 2.f), 0.f));
 		worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
 	}
+#endif
+#if 0
+	movingCubePosition = glm::vec3(0.f, 1.f, 0.f);
+	float localTime = times.elapsedTime;
+	p->setPosition(glm::vec3(-50.f, -50.f, 0.f));
+	worldToView = p->getCamera()->getViewMatrix(movingCubePosition);
+#endif
 	glm::mat4 movingCubeModel = glm::translate(glm::mat4(), movingCubePosition);
 
 
@@ -758,7 +766,7 @@ void Game::scene1( Player* p, Skybox* skybox, Times times )
     for (int i = 0; i < spotLightCount; ++i)
     {          
         // Light space matrices
-		glm::mat4 lightProjection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 100.f);
+		glm::mat4 lightProjection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 150.f);
 		glm::mat4 worldToLight = glm::lookAt(spotLights[i].position, spotLights[i].position + spotLights[i].direction, glm::vec3(0.f, 1.f, 0.f));
         //std::cout << glm::to_string(worldToLight) << std::endl;
         // Attach shadow texture for current light
@@ -998,7 +1006,7 @@ glClearDepth(1.f);
     glBindTexture(GL_TEXTURE_2D, textureManager["shadow"+to_string(i)]);
     glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
     // Light space matrices
-    glm::mat4 projection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 100.f); 
+    glm::mat4 projection = glm::perspective(glm::radians(spotLights[i].penumbraAngle*2.f), 1.f, 1.f, 150.f); 
 	glm::mat4 worldToLight = glm::lookAt(spotLights[i].position, spotLights[i].position + spotLights[i].direction, glm::vec3(0.f, 1.f, 0.f));
     glm::mat4 objectToLight = worldToLight * objectToWorld;
     glm::mat4 objectToLightScreen = projection * objectToLight;
@@ -1160,7 +1168,7 @@ glClearDepth(1.f);
     shaderManager["blitHDR"]->unuse();
     Utils::checkGlError("blit");
 
-#if 1        
+#if 0        
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     shaderManager["blit"]->use();
     glActiveTexture(GL_TEXTURE0);
@@ -1246,7 +1254,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glm::vec3( 0.5f, -0.5f, 0.f ),  //direction
 		0,  //padding
 		glm::vec3(1.f), // color
-		1.f  // iontensity
+		1.f  // intensity
 	};
 	dirLights.push_back(d1);
 
@@ -1279,7 +1287,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	else if (times.elapsedTime < thirdCut)
 	{
 		float localTime = times.elapsedTime - secondCut;
-		p->setPosition(glm::vec3(20.f + sin(t * 1000 * 2 * PI), 20.f +sin(t * 1000 * 2 * PI), 0.f));
+		p->setPosition(glm::vec3(20.f , 20.f + sin(t * 1000 * 2 * PI), 0.f + sin(t * 1000 * 2 * PI)));
 		movingCubePosition = glm::vec3(-10.f, 2.f + (localTime * 1.f) , 0.f);
 		//movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
 		worldToView = p->getCamera()->getViewMatrix( movingCubePosition );
@@ -1301,7 +1309,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 #endif
 #if 0
 	//p->setPosition(glm::vec3(0.f, 5.f, -20.f));
-	movingCubePosition = glm::vec3(0.f, 10.f, -20.f);
+	movingCubePosition = glm::vec3(0.f, 2.f, -20.f);
 	//movingCubeModel = glm::rotate(glm::mat4(), t, glm::vec3(0.f, 1.f, 0.f));
 	worldToView = p->getCamera()->getViewMatrix();
 #endif
@@ -1329,8 +1337,8 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glm::vec3(0.f, 0.f, 1.f), //color
 		50.f, //intensity
 	};
-	pointLights.push_back(p2);
 	pointLights.push_back(p1);
+	pointLights.push_back(p2);
 	pointLights.push_back(p3);
 
 	//Render in GBUFFER
@@ -1359,7 +1367,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "SpecularPower"), 100000.f);
 	glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "dmap_depth"), 10.f);
 
-	if (times.elapsedTime < firstCut)
+	if (times.elapsedTime < secondCut)
 		glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), 0.f);
 	else if (times.elapsedTime < thirdCut)
 		glUniform1f(glGetUniformLocation(shaderManager["terrain"]->getProgram(), "Time"), times.elapsedTime - secondCut);
@@ -1395,6 +1403,11 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
 	glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+	mv = worldToView * glm::translate(glm::mat4(), movingCubePosition - glm::vec3(5.f,0.f,-5.f));
+	mvp = projection * mv;
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
+	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(mv));
+	//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
 	mv = worldToView;
 	mvp = projection * mv;
 	glUniformMatrix4fv(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(mvp));
@@ -1491,9 +1504,9 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, fboManager["shadowBigRBO"]);
 	for (int i = 0; i < directionalLightCount; ++i)
 	{
-		glm::vec3 lp = -dirLights[i].direction * 10.f;
+		glm::vec3 lp = -dirLights[i].direction * 100.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-70.f, 70.0f, -70.0f, 70.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-100.f, 100.0f, -100.0f, 100.0f, 0.1f, 500.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
@@ -1518,6 +1531,14 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glUniform1i(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "reverse_normal"), 0);
 		glBindVertexArray(vaoManager["cube"]);
 		glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0);
+		glm::mat4 m = glm::rotate(glm::mat4(), -PI / 2, glm::vec3(1.0, 0.0, 0.0));
+		m = glm::translate(m, glm::vec3(-25.f, 0.f, 0.f));
+		m = glm::scale(m, glm::vec3(0.03, 0.03, 0.03));
+		objectToLight = worldToLight * m;
+		objectToLightScreen = lightProjection * objectToLight;
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MVP"), 1, GL_FALSE, glm::value_ptr(objectToLightScreen));
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["shadow"]->getProgram(), "MV"), 1, GL_FALSE, glm::value_ptr(objectToLight));
+		modelManager["tree"]->Draw(shaderManager["shadow"]);
 		shaderManager["shadow"]->unuse();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glBindVertexArray(0);
@@ -1570,6 +1591,12 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		// Render the scene
 		glBindVertexArray(vaoManager["cube"]);
 		glDrawElementsInstanced(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, (void*)0, (int)instanceCount);
+		glm::mat4 m = glm::rotate(glm::mat4(), -PI / 2, glm::vec3(1.0, 0.0, 0.0));
+		m = glm::translate(m, glm::vec3(-25.f, 0.f, 0.f));
+		m = glm::scale(m, glm::vec3(0.03, 0.03, 0.03));
+		objectToWorld = worldToView * m;
+		glUniformMatrix4fv(glGetUniformLocation(shaderManager["plShadow"]->getProgram(), "model"), 1, GL_FALSE, glm::value_ptr(objectToWorld));
+		modelManager["tree"]->Draw(shaderManager["plShadow"]);
 
 	}
 	//glClear(GL_DEPTH_BUFFER_BIT);
@@ -1614,9 +1641,9 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	{
 		glBindTexture(GL_TEXTURE_2D, textureManager["shadow" + to_string(6+i)]);
 		glBindBuffer(GL_UNIFORM_BUFFER, fboManager["ubo"]);
-		glm::vec3 lp = -dirLights[i].direction * 10.f;
+		glm::vec3 lp = -dirLights[i].direction * 100.f;
 		// Light space matrices
-		glm::mat4 lightProjection = glm::ortho(-70.f, 70.0f, -70.0f, 70.0f, 0.1f, 100.0f);
+		glm::mat4 lightProjection = glm::ortho(-200.f, 200.0f, -200.0f, 200.0f, 0.1f, 500.0f);
 		glm::mat4 worldToLight = glm::lookAt(lp, glm::vec3(0.0f), glm::vec3(1.0f));
 		glm::mat4 objectToWorld;
 		glm::mat4 objectToLight = worldToLight * objectToWorld;
@@ -1660,11 +1687,11 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	Utils::checkGlError("poiintlight");
 
 	// Draw skybox as last
-	glm::vec4 sunNDC = mvp * ((-10000.f)*glm::vec4(-1.f, -1.f, 0.f, 0.f));  // Sun equal infinite point
+	glm::vec4 sunNDC = mvp * (-10000.f) * (glm::inverse(worldToView) * glm::vec4(dirLights[0].direction, 0.f));  // Sun equal infinite point
 	sunNDC = glm::vec4(glm::vec3(sunNDC) / sunNDC.w, 1.0);
 	sunNDC += 1.0;
 	sunNDC *= 0.5;
-	view = glm::mat4(glm::mat3(p->getCamera()->getViewMatrix()));    // Remove any translation component of the view matrix
+	view = glm::mat4(glm::mat3(worldToView));    // Remove any translation component of the view matrix
 	skybox->display(view, projection, textureManager["gBufferDepth"], screenWidth, screenHeight);
 	//Render sun with occludee in black for light shaft postFX
 	shaderManager["sun"]->use();
@@ -1792,7 +1819,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 	// Viewport 
 	glViewport(screenWidth / 4 * 3, 0, screenWidth / 4, screenHeight / 4);
 	// Bind texture
-	glBindTexture(GL_TEXTURE_2D, textureManager["terrainNormal"]);
+	glBindTexture(GL_TEXTURE_2D, textureManager["shadow6"]);
 	// Draw quad
 	glDrawElements(GL_TRIANGLES, 2 * 3, GL_UNSIGNED_INT, (void*)0);
 	shaderManager["blit"]->unuse();
@@ -2406,7 +2433,7 @@ int Game::mainLoop()
 #if 1
 		if ( t.globalTime < 35.f)
             scene1(p, skybox, t);
-		else
+		else if ( t.globalTime < 70.f)
 		{
 			if (t.startTime < 1)
 			{
@@ -2414,6 +2441,10 @@ int Game::mainLoop()
 				t.elapsedTime = 0.f;
 			}
 			scene2(p, skybox, t);
+		}
+		else
+		{
+		    // print names
 		}
 #endif
 #if 0

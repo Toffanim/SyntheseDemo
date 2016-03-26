@@ -105,7 +105,7 @@ void main(void)
 #else
 	// float shadowDepth = textureProj(Shadow, vec4(lP.xy * lP.z, lP.z * lP.z, lP.z), 0.05);
 	float shadowDepth = textureProj(Shadow, vec4(lP.xy, lP.z -0.005, 1.0), 0.0);
-	Color = shadowDepth * vec4(vec3(1.0, 0.0, 1.0), 1.0);
+	//Color = shadowDepth * vec4(vec3(1.0, 0.0, 1.0), 1.0);
 	Color = shadowDepth * vec4(spotLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
 	//Color = vec4(spotLight(p, n, v, diffuseColor, specularColor, specularPower), 1.0);
 #endif	
