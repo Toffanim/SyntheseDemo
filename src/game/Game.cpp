@@ -1467,7 +1467,7 @@ void Game::scene2(Player* p, Skybox* skybox, Times times)
 		glUniform1f(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "ColorMultiplier"), 3.f);
 		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "UsePixColor"), 1);
 		glUniform1i(glGetUniformLocation(shaderManager["gbuffer"]->getProgram(), "reverse_normal"), 1);
-		modelManager["sphere"]->Draw(shaderManager["gbuffer"]);
+		//modelManager["sphere"]->Draw(shaderManager["gbuffer"]);   // Problème avec le flag, désactivé pour le moment
 		
 		pmat++;
 	}
@@ -2459,7 +2459,7 @@ int Game::mainLoop()
         t.elapsedTime = t.globalTime - t.startTime;
         t.deltaTime = t.globalTime - t.previousTime;
         t.previousTime = t.globalTime;
-		//scene2(p, skybox, t);
+		//scene3();
 
 #if 1
 		if ( t.globalTime < 35.f)

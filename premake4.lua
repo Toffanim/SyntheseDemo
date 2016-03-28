@@ -30,8 +30,8 @@ solution "aogl"
 
       configuration "Release"
          defines { "NDEBUG" }
+		 libdirs { "bin/release/" }
          flags { "Optimize"}  
-         targetdir "bin/release"  
 
    -- GLFW Library
    project "glfw"
